@@ -1,0 +1,154 @@
+<!-- Modal Agendamento -->
+<div class="modal fade" id="agendamentoModal" tabindex="-1" aria-labelledby="agendamentoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="agendamentoModalLabel">Novo Agendamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-agendamento">
+                    <input type="hidden" id="agendamento-id">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="cliente-select" class="form-label">Cliente</label>
+                            <div class="input-group">
+                                <select class="form-select" id="cliente-select" required>
+                                    <option value="">Selecione um cliente</option>
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" id="btn-novo-cliente">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="barbeiro-select" class="form-label">Barbeiro</label>
+                            <select class="form-select" id="barbeiro-select" required>
+                                <option value="">Selecione um barbeiro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="data-agendamento" class="form-label">Data</label>
+                            <input type="date" class="form-control" id="data-agendamento" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="hora-agendamento" class="form-label">Horário</label>
+                            <input type="time" class="form-control" id="hora-agendamento" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Serviços</label>
+                        <div class="input-group mb-2">
+                            <select class="form-select" id="servico-select">
+                                <option value="">Selecione um serviço para adicionar</option>
+                            </select>
+                            <button class="btn btn-outline-primary" type="button" id="btn-adicionar-servico">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div id="servicos-selecionados" class="mt-2">
+                            <!-- Serviços selecionados serão adicionados aqui -->
+                        </div>
+                        <div class="alert alert-danger d-none" id="servicos-erro">
+                            Selecione pelo menos um serviço.
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Duração Estimada</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="duracao-estimada" readonly>
+                                <span class="input-group-text">minutos</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Valor Total</label>
+                            <input type="text" class="form-control" id="valor-total" readonly>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="observacoes" class="form-label">Observações</label>
+                        <textarea class="form-control" id="observacoes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-salvar-agendamento">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="confirmacaoModal" tabindex="-1" aria-labelledby="confirmacaoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmacao-titulo">Confirmação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" id="confirmacao-mensagem">
+                <!-- Mensagem dinâmica aqui -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmacao-btn">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de novo cliente rápido -->
+<div class="modal fade" id="novoClienteModal" tabindex="-1" aria-labelledby="novoClienteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cadastro Rápido de Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-cliente-rapido">
+                    <div class="mb-3">
+                        <label for="cliente-nome" class="form-label">Nome</label>
+                        <input type="text" class="form-control" id="cliente-nome" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cliente-telefone" class="form-label">Telefone</label>
+                        <input type="text" class="form-control" id="cliente-telefone" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cliente-email" class="form-label">E-mail</label>
+                        <input type="email" class="form-control" id="cliente-email">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-salvar-cliente-rapido">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script para garantir que o Bootstrap Modal está inicializado corretamente -->
+<script>
+    // Script para diagnosticar problemas com o modal de agendamento
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Modal de agendamento inicializado:', document.getElementById('agendamentoModal'));
+        
+        // Verificar se o Bootstrap está carregado
+        if (typeof bootstrap !== 'undefined') {
+            console.log('Bootstrap está carregado. Versão:', bootstrap.Tooltip.VERSION);
+        } else {
+            console.error('Bootstrap não está carregado!');
+        }
+    });
+</script> 

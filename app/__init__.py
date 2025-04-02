@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
@@ -65,5 +65,10 @@ def create_app(config_class=None):
     
     from app.routes import routes_bp
     app.register_blueprint(routes_bp)
+    
+    # Adicionar uma rota para /api para verificação de disponibilidade
+    @app.route('/api')
+    def api_index():
+        return jsonify({"status": "ok", "message": "API B-Manager disponível"})
     
     return app 

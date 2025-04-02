@@ -1,126 +1,135 @@
-<!-- Agenda -->
-<div id="agenda">
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <div class="input-group">
-                <input type="text" class="form-control" placeholder="Buscar agendamento por cliente ou serviço..." id="agenda-busca">
-                <button class="btn btn-primary" type="button" id="agenda-busca-btn">
-                    <i class="fas fa-search"></i>
-                </button>
-            </div>
-        </div>
-        <div class="col-md-4 text-end">
-            <button type="button" class="btn btn-success" id="agenda-novo-btn">
-                <i class="fas fa-plus me-2"></i>Novo Agendamento
-            </button>
-        </div>
-    </div>
+{% extends "base/layout.html" %}
 
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header py-3 d-flex justify-content-between">
-                    <h6 class="m-0 font-weight-bold">Agendamentos do Dia</h6>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="anterior-btn">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="hoje-btn">
-                            Hoje
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="proximo-btn">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Horário</th>
-                                    <th>Cliente</th>
-                                    <th>Serviço</th>
-                                    <th>Barbeiro</th>
-                                    <th>Status</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="agenda-lista">
-                                <!-- Será preenchido via JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="agenda-empty" class="text-center py-4 d-none">
-                        <i class="fas fa-calendar-check fa-3x text-gray-300 mb-3"></i>
-                        <p>Nenhum agendamento encontrado para esta data.</p>
-                        <button class="btn btn-primary" id="agenda-novo-btn-empty">
-                            <i class="fas fa-plus me-2"></i>Agendar Atendimento
-                        </button>
-                    </div>
-                    <div id="agenda-loading" class="text-center py-4">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Carregando...</span>
-                        </div>
-                        <p class="mt-2">Carregando agendamentos...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+{% block title %}Agenda | B-Manager{% endblock %}
+
+{% block sidebar %}
+    {% include "components/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+    {% include "pages/agenda_content.html" %}
+{% endblock %}
+
+{% block styles %}
+<style>
+    /* Estilo para o calendário */
+    .calendar-container {
+        width: 100%;
+    }
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+    }
+    .calendar-cell {
+        padding: 5px;
+        text-align: center;
+    }
+    .calendar-day {
+        padding: 5px;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        cursor: pointer;
+    }
+    .calendar-day:hover {
+        background-color: #f8f9fa;
+    }
+    .calendar-day.active {
+        background-color: #007bff;
+        color: white;
+    }
+    .calendar-day.today {
+        border: 1px solid #007bff;
+    }
+    .calendar-day.has-events {
+        font-weight: bold;
+        text-decoration: underline;
+    }
+    
+    /* Estilo para lista de agendamentos */
+    .agendamento-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    .agendamento-item:last-child {
+        border-bottom: none;
+    }
+    .agendamento-horario {
+        font-weight: bold;
+    }
+    .agendamento-cliente {
+        font-weight: 500;
+    }
+    
+    /* Status dos agendamentos */
+    .status-pendente {
+        color: #f39c12;
+    }
+    .status-concluido {
+        color: #2ecc71;
+    }
+    .status-cancelado {
+        color: #e74c3c;
+    }
+    .status-em-andamento {
+        color: #3498db;
+    }
+    
+    /* Estilo para os cards de serviços selecionados */
+    .servico-card {
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .servico-card .servico-info {
+        display: flex;
+        flex-direction: column;
+    }
+    .servico-card .servico-nome {
+        font-weight: 500;
+    }
+    .servico-card .servico-preco {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    .servico-card .btn-remover-servico {
+        color: #dc3545;
+        background: none;
+        border: none;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<!-- Script para a página de agenda -->
+<script src="/static/js/agenda.js"></script>
+<script>
+    // Script para verificar a navegação
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Página de agenda carregada com sucesso!');
         
-        <div class="col-md-4">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold">Calendário</h6>
-                </div>
-                <div class="card-body">
-                    <!-- Mini calendário será implementado aqui -->
-                    <div id="mini-calendario" class="calendar-container">
-                        <div class="calendar-header d-flex justify-content-between mb-3">
-                            <div id="calendar-month-year">Abril 2025</div>
-                            <div class="calendar-nav">
-                                <button class="btn btn-sm btn-link" id="calendar-prev">
-                                    <i class="fas fa-chevron-left"></i>
-                                </button>
-                                <button class="btn btn-sm btn-link" id="calendar-today">
-                                    Hoje
-                                </button>
-                                <button class="btn btn-sm btn-link" id="calendar-next">
-                                    <i class="fas fa-chevron-right"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="calendar-weekdays mb-2">
-                            <div class="calendar-grid">
-                                <div class="text-center">Dom</div>
-                                <div class="text-center">Seg</div>
-                                <div class="text-center">Ter</div>
-                                <div class="text-center">Qua</div>
-                                <div class="text-center">Qui</div>
-                                <div class="text-center">Sex</div>
-                                <div class="text-center">Sáb</div>
-                            </div>
-                        </div>
-                        <div id="calendar-days" class="calendar-grid">
-                            <!-- Dias do calendário serão gerados via JavaScript -->
-                        </div>
-                    </div>
-                </div>
-            </div>
+        // Verificar se o link da agenda está configurado corretamente
+        const agendaLink = document.getElementById('agenda-link');
+        if (agendaLink) {
+            console.log('Link da agenda encontrado com href:', agendaLink.getAttribute('href'));
             
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold">Próximos Agendamentos</h6>
-                </div>
-                <div class="card-body">
-                    <div id="proximos-agenda">
-                        <!-- Lista de próximos agendamentos será gerada via JavaScript -->
-                    </div>
-                    <div id="proximos-agenda-empty" class="text-center py-4 d-none">
-                        <p>Não há agendamentos futuros.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div> 
+            // Destacar o link da agenda no sidebar como ativo
+            const sidebarLinks = document.querySelectorAll('.nav-link');
+            sidebarLinks.forEach(link => link.classList.remove('active'));
+            agendaLink.classList.add('active');
+        } else {
+            console.error('Link da agenda não encontrado!');
+        }
+    });
+</script>
+{% endblock %} 

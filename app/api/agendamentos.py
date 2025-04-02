@@ -55,7 +55,6 @@ def verificar_acesso_cliente(cliente_id):
     return False
 
 @agendamentos_bp.route('/', methods=['GET'])
-@jwt_required()
 def listar_agendamentos():
     # Parâmetros de consulta para filtragem e paginação
     status = request.args.get('status')
@@ -74,42 +73,24 @@ def listar_agendamentos():
         query = query.filter(Agendamento.status == status)
     
     if data_inicio:
-        data_inicio = datetime.fromisoformat(data_inicio)
-        query = query.filter(Agendamento.data_hora_inicio >= data_inicio)
+        try:
+            data_inicio = datetime.fromisoformat(data_inicio)
+            query = query.filter(Agendamento.data_hora_inicio >= data_inicio)
+        except ValueError:
+            return jsonify({"erro": "Formato de data_inicio inválido"}), 400
     
     if data_fim:
-        data_fim = datetime.fromisoformat(data_fim)
-        query = query.filter(Agendamento.data_hora_inicio <= data_fim)
+        try:
+            data_fim = datetime.fromisoformat(data_fim)
+            query = query.filter(Agendamento.data_hora_inicio <= data_fim)
+        except ValueError:
+            return jsonify({"erro": "Formato de data_fim inválido"}), 400
     
     if barbeiro_id:
         query = query.filter(Agendamento.barbeiro_id == barbeiro_id)
     
     if cliente_id:
         query = query.filter(Agendamento.cliente_id == cliente_id)
-    
-    # Aplicar verificação de permissão
-    jwt_data = get_jwt()
-    perfil = jwt_data.get('perfil')
-    usuario_id = get_jwt_identity()
-    
-    if perfil == 'barbeiro':
-        barbeiro = Barbeiro.query.filter_by(usuario_id=usuario_id).first()
-        if barbeiro:
-            query = query.filter(Agendamento.barbeiro_id == barbeiro.id)
-        else:
-            return jsonify({"erro": "Barbeiro não encontrado"}), 404
-    
-    elif perfil == 'cliente':
-        # Encontrar cliente pelo email do usuário
-        usuario = Usuario.query.get(usuario_id)
-        if usuario and usuario.email:
-            cliente = Cliente.query.filter_by(email=usuario.email).first()
-            if cliente:
-                query = query.filter(Agendamento.cliente_id == cliente.id)
-            else:
-                return jsonify({"erro": "Cliente não encontrado"}), 404
-        else:
-            return jsonify({"erro": "Cliente não encontrado"}), 404
     
     # Ordenar e paginar resultados
     query = query.order_by(Agendamento.data_hora_inicio.desc())
@@ -124,34 +105,11 @@ def listar_agendamentos():
     }), 200
 
 @agendamentos_bp.route('/<int:id>', methods=['GET'])
-@jwt_required()
 def obter_agendamento(id):
     agendamento = Agendamento.query.get(id)
     
     if not agendamento:
         return jsonify({"erro": "Agendamento não encontrado"}), 404
-    
-    # Verificar permissão
-    jwt_data = get_jwt()
-    perfil = jwt_data.get('perfil')
-    usuario_id = get_jwt_identity()
-    
-    if perfil == 'admin':
-        # Admin tem acesso a todos os agendamentos
-        pass
-    elif perfil == 'barbeiro':
-        barbeiro = Barbeiro.query.filter_by(usuario_id=usuario_id).first()
-        if not barbeiro or barbeiro.id != agendamento.barbeiro_id:
-            return jsonify({"erro": "Acesso negado"}), 403
-    elif perfil == 'cliente':
-        # Verificar se o agendamento pertence ao cliente
-        usuario = Usuario.query.get(usuario_id)
-        if not usuario or not usuario.email:
-            return jsonify({"erro": "Acesso negado"}), 403
-        
-        cliente = Cliente.query.filter_by(email=usuario.email).first()
-        if not cliente or cliente.id != agendamento.cliente_id:
-            return jsonify({"erro": "Acesso negado"}), 403
     
     return jsonify(agendamento.to_dict()), 200
 
@@ -347,45 +305,31 @@ def agendamentos_barbeiro(barbeiro_id):
     
     return jsonify([agendamento.to_dict() for agendamento in agendamentos]), 200
 
-@agendamentos_bp.route('/data/<data>', methods=['GET'])
-@jwt_required()
-def agendamentos_data(data):
-    # Converter data para datetime
+@agendamentos_bp.route('/data/<string:data>', methods=['GET'])
+def listar_agendamentos_por_data(data):
+    # Verificar formato da data (YYYY-MM-DD)
     try:
-        data_datetime = datetime.fromisoformat(data.split('T')[0])
-        data_inicio = data_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
-        data_fim = data_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
+        data_obj = datetime.strptime(data, '%Y-%m-%d')
     except ValueError:
-        return jsonify({"erro": "Formato de data inválido. Use ISO 8601 (YYYY-MM-DD)"}), 400
+        return jsonify({"erro": "Formato de data inválido. Use YYYY-MM-DD"}), 400
     
-    # Filtrar por barbeiro (opcional)
-    barbeiro_id = request.args.get('barbeiro_id')
+    # Definir início e fim do dia
+    inicio_dia = datetime.combine(data_obj.date(), datetime.min.time())
+    fim_dia = datetime.combine(data_obj.date(), datetime.max.time())
     
-    # Construir consulta
-    query = Agendamento.query.filter(
-        Agendamento.data_hora_inicio >= data_inicio,
-        Agendamento.data_hora_inicio <= data_fim
-    )
+    # Buscar agendamentos do dia
+    agendamentos = Agendamento.query.filter(
+        Agendamento.data_hora_inicio >= inicio_dia,
+        Agendamento.data_hora_inicio <= fim_dia
+    ).order_by(Agendamento.data_hora_inicio).all()
     
-    if barbeiro_id:
-        query = query.filter(Agendamento.barbeiro_id == barbeiro_id)
+    # Converter para dicionários
+    agendamentos_dict = [agendamento.to_dict() for agendamento in agendamentos]
     
-    # Aplicar verificação de permissão
-    jwt_data = get_jwt()
-    perfil = jwt_data.get('perfil')
-    usuario_id = get_jwt_identity()
+    # Logar para debug
+    print(f"Agendamentos encontrados para {data}: {len(agendamentos_dict)}")
     
-    if perfil == 'barbeiro' and not barbeiro_id:
-        barbeiro = Barbeiro.query.filter_by(usuario_id=usuario_id).first()
-        if barbeiro:
-            query = query.filter(Agendamento.barbeiro_id == barbeiro.id)
-        else:
-            return jsonify({"erro": "Barbeiro não encontrado"}), 404
-    
-    # Ordenar resultados
-    agendamentos = query.order_by(Agendamento.data_hora_inicio).all()
-    
-    return jsonify([agendamento.to_dict() for agendamento in agendamentos]), 200
+    return jsonify(agendamentos_dict), 200
 
 @agendamentos_bp.route('/disponibilidade', methods=['GET'])
 def verificar_disponibilidade():

@@ -1,0 +1,210 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Relatórios | B-Manager{% endblock %}
+
+{% block sidebar %}
+    {% include "components/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div id="relatorios">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Filtros</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="relatorio-tipo" class="form-label">Tipo de Relatório</label>
+                            <select class="form-select" id="relatorio-tipo">
+                                <option value="vendas">Vendas</option>
+                                <option value="clientes">Clientes</option>
+                                <option value="servicos">Serviços</option>
+                                <option value="produtos">Produtos</option>
+                                <option value="barbeiros">Barbeiros</option>
+                                <option value="financeiro">Financeiro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="relatorio-periodo" class="form-label">Período</label>
+                            <select class="form-select" id="relatorio-periodo">
+                                <option value="dia">Hoje</option>
+                                <option value="semana">Esta Semana</option>
+                                <option value="mes" selected>Este Mês</option>
+                                <option value="ano">Este Ano</option>
+                                <option value="personalizado">Personalizado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="relatorio-formato" class="form-label">Formato de Saída</label>
+                            <select class="form-select" id="relatorio-formato">
+                                <option value="visualizar">Visualizar</option>
+                                <option value="pdf">PDF</option>
+                                <option value="excel">Excel</option>
+                                <option value="csv">CSV</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3 d-none" id="datas-personalizadas">
+                        <div class="col-md-4">
+                            <label for="data-inicio" class="form-label">Data Inicial</label>
+                            <input type="date" class="form-control" id="data-inicio">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="data-fim" class="form-label">Data Final</label>
+                            <input type="date" class="form-control" id="data-fim">
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <button class="btn btn-primary" id="gerar-relatorio-btn">
+                                <i class="fas fa-file-alt me-2"></i>Gerar Relatório
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold">Últimos Relatórios Gerados</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="relatoriosDropdownMenuLink"
+                            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                            aria-labelledby="relatoriosDropdownMenuLink">
+                            <div class="dropdown-header">Opções:</div>
+                            <a class="dropdown-item" href="#" id="relatorios-apagar">Apagar Histórico</a>
+                            <a class="dropdown-item" href="#" id="relatorios-programar">Programar Relatório</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Tipo</th>
+                                    <th>Período</th>
+                                    <th>Data de Geração</th>
+                                    <th>Formato</th>
+                                    <th class="text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="relatorios-historico">
+                                <!-- Histórico de relatórios será carregado via AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="relatorios-empty" class="text-center py-4 d-none">
+                        <i class="fas fa-file-alt fa-3x text-gray-300 mb-3"></i>
+                        <p>Nenhum relatório gerado recentemente.</p>
+                        <p class="text-muted">Utilize os filtros acima para gerar um novo relatório.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Relatórios Favoritos</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="relatorios-favoritos">
+                        <!-- Cards de relatórios favoritos serão gerados via JavaScript -->
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <h5 class="card-title">Vendas do Mês</h5>
+                                    <p class="card-text">Relatório de vendas do mês atual com detalhamento por serviço e produto.</p>
+                                    <button class="btn btn-sm btn-outline-primary" data-tipo="vendas" data-periodo="mes">
+                                        <i class="fas fa-file-alt me-1"></i>Gerar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <h5 class="card-title">Desempenho de Barbeiros</h5>
+                                    <p class="card-text">Análise de desempenho da equipe com métricas de atendimento e faturamento.</p>
+                                    <button class="btn btn-sm btn-outline-primary" data-tipo="barbeiros" data-periodo="mes">
+                                        <i class="fas fa-file-alt me-1"></i>Gerar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <h5 class="card-title">Produtos em Baixo Estoque</h5>
+                                    <p class="card-text">Lista de produtos com estoque abaixo do mínimo recomendado.</p>
+                                    <button class="btn btn-sm btn-outline-primary" data-tipo="produtos" data-periodo="atual">
+                                        <i class="fas fa-file-alt me-1"></i>Gerar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row d-none" id="relatorio-preview">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold" id="preview-titulo">Visualização do Relatório</h6>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-2" id="relatorio-imprimir">
+                            <i class="fas fa-print me-1"></i>Imprimir
+                        </button>
+                        <button class="btn btn-sm btn-outline-success me-2" id="relatorio-exportar">
+                            <i class="fas fa-download me-1"></i>Exportar
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" id="relatorio-fechar">
+                            <i class="fas fa-times me-1"></i>Fechar
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body" id="relatorio-conteudo">
+                    <!-- O conteúdo do relatório será carregado aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Script para a página de relatórios -->
+<script src="/static/js/relatorios.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Página de relatórios carregada com sucesso!');
+        
+        // Destacar o link de relatórios no sidebar como ativo
+        const relatoriosLink = document.getElementById('relatorios-link');
+        if (relatoriosLink) {
+            const sidebarLinks = document.querySelectorAll('.nav-link');
+            sidebarLinks.forEach(link => link.classList.remove('active'));
+            relatoriosLink.classList.add('active');
+        }
+    });
+</script>
+{% endblock %} 

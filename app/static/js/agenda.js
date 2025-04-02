@@ -2,13 +2,140 @@
  * Funções para gerenciamento da agenda
  */
 
-// Variáveis globais da agenda
-let currentMonth;
-let currentYear;
+// URL base da API
+const API_URL = '/api';
 
-// Referências aos IDs de cliente e barbeiro
+// Variáveis globais da agenda
+let currentDate = new Date();  // Data selecionada atual
+let currentMonth;              // Mês atual do calendário
+let currentYear;               // Ano atual do calendário
+let servicosSelecionados = []; // Lista de serviços selecionados para agendamento
+let duracaoTotal = 0;          // Duração total em minutos dos serviços selecionados
+let valorTotal = 0;            // Valor total dos serviços selecionados
+let modoEdicao = false;        // Flag para saber se está editando um agendamento existente
+let cliente_id_atual = null;   // Cliente selecionado
+
+// IDs de seleções e elementos
 const clienteSelect = '#cliente-select';
 const barbeiroSelect = '#barbeiro-select';
+
+// Inicializar a página da agenda
+$(document).ready(function() {
+    console.log('Página de agenda carregada');
+    
+    // Verificar se API está disponível (removido o teste para a raiz da API que não existe)
+    
+    // Inicializar calendário
+    initCalendar();
+    
+    // Carregar agendamentos para hoje
+    let hoje = formatDate(new Date());
+    loadAgendamentosDia(hoje);
+    loadProximosAgendamentos();
+    
+    // Configurar botões de navegação de datas
+    $('#hoje-btn').on('click', function() {
+        const hoje = new Date();
+        loadAgendamentosDia(formatDate(hoje));
+        highlightCalendarDay(formatDate(hoje));
+    });
+    
+    $('#anterior-btn').on('click', function() {
+        let data = parseDate(currentDate);
+        data.setDate(data.getDate() - 1);
+        loadAgendamentosDia(formatDate(data));
+        highlightCalendarDay(formatDate(data));
+    });
+    
+    $('#proximo-btn').on('click', function() {
+        let data = parseDate(currentDate);
+        data.setDate(data.getDate() + 1);
+        loadAgendamentosDia(formatDate(data));
+        highlightCalendarDay(formatDate(data));
+    });
+    
+    // Configurar botão de novo agendamento
+    console.log('Configurando botão de novo agendamento:', $('#agenda-novo-btn').length);
+    $('#agenda-novo-btn, #agenda-novo-btn-empty').on('click', function() {
+        console.log('Botão de novo agendamento clicado');
+        openModalAgendamento();
+    });
+    
+    // Carregar clientes e barbeiros
+    loadClientesSelect();
+    
+    // Eventos do modal de agendamento
+    $('#cliente-select').on('change', function() {
+        cliente_id_atual = $(this).val();
+        
+        if (cliente_id_atual) {
+            let dataAgendamento = $('#data-agendamento').val();
+            let horaAgendamento = $('#hora-agendamento').val();
+            
+            if (dataAgendamento && horaAgendamento) {
+                loadBarbeirosDisponiveis(dataAgendamento, horaAgendamento);
+            }
+        }
+    });
+    
+    $('#data-agendamento, #hora-agendamento').on('change', function() {
+        let dataAgendamento = $('#data-agendamento').val();
+        let horaAgendamento = $('#hora-agendamento').val();
+        
+        if (dataAgendamento && horaAgendamento) {
+            loadBarbeirosDisponiveis(dataAgendamento, horaAgendamento);
+        }
+    });
+    
+    // Carregar serviços ao abrir o modal
+    $('#agendamentoModal').on('show.bs.modal', function() {
+        loadServicosDisponiveis();
+    });
+    
+    // Adicionar serviço à lista
+    $('#btn-adicionar-servico').on('click', function() {
+        const servicoSelect = $('#servico-select');
+        const servicoId = servicoSelect.val();
+        
+        if (servicoId) {
+            const servicoNome = $('#servico-select option:selected').text();
+            const servicoPreco = $('#servico-select option:selected').data('preco');
+            const servicoDuracao = $('#servico-select option:selected').data('duracao');
+            
+            adicionarServicoSelecionado(servicoId, servicoNome, servicoPreco, servicoDuracao);
+            servicoSelect.val('');
+        }
+    });
+    
+    // Salvar agendamento
+    $('#btn-salvar-agendamento').on('click', function() {
+        salvarAgendamento();
+    });
+    
+    // Abrir modal de novo cliente
+    $('#btn-novo-cliente').on('click', function() {
+        $('#novoClienteModal').modal('show');
+    });
+    
+    // Salvar cliente rápido
+    $('#btn-salvar-cliente-rapido').on('click', function() {
+        salvarClienteRapido();
+    });
+    
+    // Busca de agendamentos
+    $('#agenda-busca-btn').on('click', function() {
+        buscarAgendamentos();
+    });
+    
+    $('#agenda-busca').on('keypress', function(e) {
+        if (e.which == 13) {
+            buscarAgendamentos();
+        }
+    });
+    
+    // Inicializar tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+});
 
 // Inicializar calendário
 function initCalendar() {
@@ -39,8 +166,13 @@ function initCalendar() {
         renderCalendar(currentMonth, currentYear);
     });
     
-    // Carregar agendamentos para o dia atual
-    loadAgendamentosDia(formatDate(now));
+    $('#current-month-btn').on('click', function() {
+        const now = new Date();
+        currentMonth = now.getMonth();
+        currentYear = now.getFullYear();
+        renderCalendar(currentMonth, currentYear);
+        loadAgendamentosDia(formatDate(now));
+    });
 }
 
 // Renderizar calendário
@@ -64,12 +196,12 @@ function renderCalendar(month, year) {
     // Data atual para destacar
     const today = new Date();
     const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
-    const currentDate = today.getDate();
+    const currentDay = today.getDate();
     
     // Dia selecionado inicialmente (hoje se for o mês atual, primeiro dia do mês se não for)
     let selectedDate;
     if (isCurrentMonth) {
-        selectedDate = currentDate;
+        selectedDate = currentDay;
     } else {
         selectedDate = 1;
     }
@@ -92,14 +224,28 @@ function renderCalendar(month, year) {
             dayDiv.innerText = date;
             
             // Destacar hoje
-            if (isCurrentMonth && date === currentDate) {
+            if (isCurrentMonth && date === currentDay) {
                 dayDiv.classList.add('today');
             }
             
             // Selecionar o dia inicial
-            if (date === selectedDate) {
+            if (date === selectedDate && isCurrentMonth) {
                 dayDiv.classList.add('active');
             }
+            
+            // Adicionar evento de clique
+            dayDiv.addEventListener('click', function() {
+                // Remover classe ativa de todos os dias
+                document.querySelectorAll('.calendar-day').forEach(function(day) {
+                    day.classList.remove('active');
+                });
+                
+                // Adicionar classe ativa ao dia clicado
+                this.classList.add('active');
+                
+                // Carregar agendamentos para o dia selecionado
+                loadAgendamentosDia(this.dataset.date);
+            });
             
             // Adicionar div do dia à célula
             cell.appendChild(dayDiv);
@@ -110,501 +256,578 @@ function renderCalendar(month, year) {
         // Adicionar célula ao calendário
         $('#calendar-days').append(cell);
     }
+    
+    // Verificar agendamentos para o mês atual para marcar dias com eventos
+    checkAgendamentosDoMes(month, year);
 }
 
-// Carregar agendamentos para um dia específico
-function loadAgendamentosDia(date) {
-    // Atualizar data selecionada
-    currentDate = date;
+// Verificar dias do mês com agendamentos
+function checkAgendamentosDoMes(month, year) {
+    // Formatar datas de início e fim do mês para a API
+    const dataInicio = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
+    const ultimoDia = new Date(year, month + 1, 0).getDate();
+    const dataFim = `${year}-${(month + 1).toString().padStart(2, '0')}-${ultimoDia}`;
     
-    // Formatar data para exibição (DD/MM/YYYY)
-    const displayDate = formatDisplayDate(date);
-    $('#selected-date').text(displayDate);
-    
-    // Exibir loading
-    $('#agendamentos-dia').html('<div class="text-center my-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>');
-    
-    // Fazer requisição AJAX
+    // Fazer requisição AJAX para obter agendamentos do mês
     $.ajax({
-        url: `${API_URL}/agendamentos/data/${date}`,
+        url: `${API_URL}/agendamentos?data_inicio=${dataInicio}&data_fim=${dataFim}`,
         type: 'GET',
         success: function(response) {
-            if (!response || response.length === 0) {
-                // Exibir mensagem de lista vazia
-                $('#agendamentos-dia').html(`
-                    <div class="text-center my-4">
-                        <img src="/static/img/empty-calendar.svg" alt="Calendário vazio" class="img-fluid mb-3" style="max-height: 150px;">
-                        <h5>Nenhum agendamento para este dia</h5>
-                        <p class="text-muted">Clique no botão abaixo para criar um novo agendamento</p>
-                        <button id="btn-novo-agendamento-empty" class="btn btn-primary">
-                            <i class="fas fa-plus-circle me-2"></i> Novo Agendamento
-                        </button>
-                    </div>
-                `);
+            if (response && response.items && response.items.length > 0) {
+                // Criar um Map para armazenar quantidade de agendamentos por dia
+                const diasComAgendamento = new Map();
                 
-                // Evento para o botão de novo agendamento
-                $('#btn-novo-agendamento-empty').on('click', function() {
-                    openModalAgendamento(null, null, date);
+                // Contar agendamentos por dia
+                response.items.forEach(function(agendamento) {
+                    const dataAgendamento = agendamento.data_hora_inicio.split('T')[0];
+                    if (diasComAgendamento.has(dataAgendamento)) {
+                        diasComAgendamento.set(dataAgendamento, diasComAgendamento.get(dataAgendamento) + 1);
+                    } else {
+                        diasComAgendamento.set(dataAgendamento, 1);
+                    }
                 });
                 
-                // Limpar resumo do dia
-                $('#agendamentos-resumo').html(`
-                    <div class="small-stat-item">
-                        <div class="small-stat-info">
-                            <h6 class="mb-0">0</h6>
-                            <small class="text-muted">Agendamentos</small>
-                        </div>
-                    </div>
-                    <div class="small-stat-item">
-                        <div class="small-stat-info">
-                            <h6 class="mb-0">R$ 0,00</h6>
-                            <small class="text-muted">Valor Total</small>
-                        </div>
-                    </div>
-                    <div class="small-stat-item">
-                        <div class="small-stat-info">
-                            <h6 class="mb-0">0</h6>
-                            <small class="text-muted">Clientes</small>
-                        </div>
-                    </div>
-                `);
-            } else {
-                // Atualizar resumo do dia
-                const totalAgendamentos = response.length;
-                const valorTotal = response.reduce((sum, a) => sum + (a.valor || 0), 0);
-                const valorFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotal);
-                
-                // Contar clientes únicos
-                const clientesUnicos = new Set(response.map(a => a.cliente_id)).size;
-                
-                $('#agendamentos-resumo').html(`
-                    <div class="small-stat-item">
-                        <div class="small-stat-info">
-                            <h6 class="mb-0">${totalAgendamentos}</h6>
-                            <small class="text-muted">Agendamentos</small>
-                        </div>
-                    </div>
-                    <div class="small-stat-item">
-                        <div class="small-stat-info">
-                            <h6 class="mb-0">${valorFormatado}</h6>
-                            <small class="text-muted">Valor Total</small>
-                        </div>
-                    </div>
-                    <div class="small-stat-item">
-                        <div class="small-stat-info">
-                            <h6 class="mb-0">${clientesUnicos}</h6>
-                            <small class="text-muted">Clientes</small>
-                        </div>
-                    </div>
-                `);
-                
-                // Renderizar lista de agendamentos
-                renderizarAgendamentos(response);
+                // Marcar dias com agendamentos no calendário
+                diasComAgendamento.forEach(function(quantidade, data) {
+                    const diaElement = document.querySelector(`.calendar-day[data-date="${data}"]`);
+                    if (diaElement) {
+                        diaElement.classList.add('has-events');
+                        diaElement.setAttribute('title', `${quantidade} agendamento(s)`);
+                        // Inicializar tooltip
+                        new bootstrap.Tooltip(diaElement);
+                    }
+                });
             }
-        },
-        error: function(xhr) {
-            $('#agendamentos-dia').html(`
-                <div class="alert alert-danger" role="alert">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    Erro ao carregar agendamentos: ${xhr.responseJSON?.erro || 'Erro de comunicação com o servidor'}
-                </div>
-            `);
         }
     });
 }
 
-// Função para renderizar a lista de agendamentos
-function renderizarAgendamentos(agendamentos) {
-    let html = '<div class="table-responsive">';
-    html += `
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Horário</th>
-                    <th>Cliente</th>
-                    <th>Barbeiro</th>
-                    <th>Serviço</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
+// Destacar dia no calendário
+function highlightCalendarDay(dateString) {
+    // Remover classe ativa de todos os dias
+    document.querySelectorAll('.calendar-day').forEach(function(day) {
+        day.classList.remove('active');
+    });
     
-    agendamentos.forEach(agendamento => {
-        const dataHora = new Date(agendamento.data_hora_inicio);
-        const hora = dataHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        
-        // Obter o primeiro serviço (se houver)
-        let servico = 'N/A';
-        if (agendamento.servicos && agendamento.servicos.length > 0) {
-            servico = agendamento.servicos[0].nome;
-            if (agendamento.servicos.length > 1) {
-                servico += ` (+${agendamento.servicos.length - 1})`;
+    // Adicionar classe ativa ao dia correspondente à data
+    const dayElement = document.querySelector(`.calendar-day[data-date="${dateString}"]`);
+    if (dayElement) {
+        dayElement.classList.add('active');
+    }
+}
+
+// Carregar agendamentos para um dia específico
+function loadAgendamentosDia(date) {
+    currentDate = date;
+    console.log('Carregando agendamentos para a data:', date);
+    
+    // Atualizar título com a data formatada
+    $('#selected-date-display').text('Agendamentos do Dia: ' + formatDisplayDate(date));
+    
+    // Mostrar loader
+    $('#agenda-loading').removeClass('d-none');
+    $('#agenda-lista').html('');
+    $('#agenda-empty').addClass('d-none');
+    
+    // Fazer requisição à API
+    $.ajax({
+        url: `${API_URL}/agendamentos/data/${date}`,
+        type: 'GET',
+        success: function(response) {
+            console.log('Resposta da API:', response);
+            $('#agenda-loading').addClass('d-none');
+            
+            if (response && response.length > 0) {
+                renderizarAgendamentos(response);
+                atualizarResumoDia(
+                    response.length,
+                    response.reduce((sum, agendamento) => {
+                        return sum + agendamento.servicos.reduce((servSum, servico) => servSum + servico.preco, 0);
+                    }, 0),
+                    new Set(response.map(item => item.cliente_id)).size
+                );
+            } else {
+                $('#agenda-empty').removeClass('d-none');
+                atualizarResumoDia(0, 0, 0);
             }
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao carregar agendamentos:', xhr, status, error);
+            $('#agenda-loading').addClass('d-none');
+            $('#agenda-lista').html('<tr><td colspan="6" class="text-center text-danger">Erro ao carregar agendamentos. Tente novamente.</td></tr>');
+            mostrarErroAPI('Erro ao carregar agendamentos. Verifique a conexão com o servidor.');
+        }
+    });
+}
+
+// Atualizar resumo do dia na UI
+function atualizarResumoDia(totalAgendamentos, valorTotal, clientesUnicos) {
+    const valorFormatado = formatarMoeda(valorTotal);
+    
+    $('#total-agendamentos').text(totalAgendamentos);
+    $('#total-valor').text(valorFormatado);
+    $('#total-clientes').text(clientesUnicos);
+}
+
+// Renderizar lista de agendamentos
+function renderizarAgendamentos(agendamentos) {
+    // Ordenar agendamentos por horário
+    agendamentos.sort((a, b) => {
+        return new Date(a.data_hora_inicio) - new Date(b.data_hora_inicio);
+    });
+    
+    let html = '';
+    
+    agendamentos.forEach(function(agendamento) {
+        const horaInicio = new Date(agendamento.data_hora_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const horaFim = new Date(agendamento.data_hora_fim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const servicos = agendamento.servicos.map(s => s.nome).join(', ');
+        
+        // Definir classe CSS para status
+        let statusClass = '';
+        switch (agendamento.status) {
+            case 'pendente': statusClass = 'status-pendente'; break;
+            case 'concluido': statusClass = 'status-concluido'; break;
+            case 'cancelado': statusClass = 'status-cancelado'; break;
+            case 'em_andamento': statusClass = 'status-em-andamento'; break;
         }
         
-        // Verificar se é possível concluir ou cancelar
-        let acoesBotoes = '';
-        if (agendamento.status === 'agendado') {
-            acoesBotoes = `
-                <button class="btn btn-sm btn-outline-success me-1" onclick="concluirAgendamento(${agendamento.id})">
+        // Botões de ação com base no status
+        let botoesAcao = '';
+        
+        if (agendamento.status === 'pendente') {
+            botoesAcao = `
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editarAgendamento(${agendamento.id})" title="Editar">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-success me-1" onclick="concluirAgendamento(${agendamento.id})" title="Concluir">
                     <i class="fas fa-check"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="cancelarAgendamento(${agendamento.id})">
+                <button class="btn btn-sm btn-outline-danger" onclick="cancelarAgendamento(${agendamento.id})" title="Cancelar">
                     <i class="fas fa-times"></i>
+                </button>
+            `;
+        } else if (agendamento.status === 'em_andamento') {
+            botoesAcao = `
+                <button class="btn btn-sm btn-outline-success me-1" onclick="concluirAgendamento(${agendamento.id})" title="Concluir">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="cancelarAgendamento(${agendamento.id})" title="Cancelar">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+        } else {
+            botoesAcao = `
+                <button class="btn btn-sm btn-outline-secondary" onclick="visualizarAgendamento(${agendamento.id})" title="Visualizar">
+                    <i class="fas fa-eye"></i>
                 </button>
             `;
         }
         
         html += `
             <tr>
-                <td>${hora}</td>
-                <td>${agendamento.cliente_nome || 'N/A'}</td>
-                <td>${agendamento.barbeiro_nome || 'N/A'}</td>
-                <td>${servico}</td>
-                <td><span class="status-badge status-${agendamento.status}">${agendamento.status}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary me-1 action-icon edit" data-id="${agendamento.id}">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    ${acoesBotoes}
-                </td>
+                <td>${horaInicio} - ${horaFim}</td>
+                <td>${agendamento.cliente_nome}</td>
+                <td>${servicos}</td>
+                <td>${agendamento.barbeiro_nome}</td>
+                <td><span class="${statusClass}">${agendamento.status}</span></td>
+                <td>${botoesAcao}</td>
             </tr>
         `;
     });
     
-    html += '</tbody></table></div>';
-    $('#agendamentos-dia').html(html);
+    $('#agenda-lista').html(html);
 }
 
-// Carregar barbeiros disponíveis para um determinado dia/horário
+// Carregar próximos agendamentos
+function loadProximosAgendamentos() {
+    console.log('Carregando próximos agendamentos');
+    
+    // Mostrar loading
+    $('#proximos-agenda').html('');
+    $('#proximos-agenda-empty').addClass('d-none');
+    $('#proximos-agenda-loading').removeClass('d-none');
+    
+    // Obter data atual formatada (YYYY-MM-DD)
+    const hoje = formatDate(new Date());
+    
+    // Fazer requisição à API
+    $.ajax({
+        url: `${API_URL}/agendamentos?data_inicio=${hoje}&status=pendente&por_pagina=5`,
+        type: 'GET',
+        success: function(response) {
+            console.log('Próximos agendamentos:', response);
+            $('#proximos-agenda-loading').addClass('d-none');
+            
+            if (response && response.items && response.items.length > 0) {
+                // Renderizar próximos agendamentos
+                let html = '';
+                
+                response.items.forEach(agendamento => {
+                    // Formatar data e hora
+                    const dataHora = new Date(agendamento.data_hora_inicio);
+                    const dataFormatada = dataHora.toLocaleDateString('pt-BR');
+                    const horaFormatada = dataHora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+                    
+                    // Obter nome do serviço principal (primeiro)
+                    let servicoNome = 'Sem serviço';
+                    if (agendamento.servicos && agendamento.servicos.length > 0) {
+                        servicoNome = agendamento.servicos[0].nome;
+                        if (agendamento.servicos.length > 1) {
+                            servicoNome += ` + ${agendamento.servicos.length - 1} serviço(s)`;
+                        }
+                    }
+                    
+                    html += `
+                        <div class="agendamento-item" data-id="${agendamento.id}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="agendamento-horario">${dataFormatada} ${horaFormatada}</div>
+                                    <div class="agendamento-cliente">${agendamento.cliente_nome}</div>
+                                    <div class="small text-muted">${servicoNome}</div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="visualizarAgendamento(${agendamento.id})">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                $('#proximos-agenda').html(html);
+            } else {
+                $('#proximos-agenda-empty').removeClass('d-none');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao carregar próximos agendamentos:', xhr, status, error);
+            $('#proximos-agenda-loading').addClass('d-none');
+            $('#proximos-agenda').html('<div class="alert alert-danger">Erro ao carregar agendamentos futuros.</div>');
+        }
+    });
+}
+
+// Carregar barbeiros disponíveis para o horário selecionado
 function loadBarbeirosDisponiveis(date, horario = '') {
-    // Exibir loading
-    $(barbeiroSelect).html('<option value="">Carregando...</option>');
+    // Formatar horário para incluir na consulta se fornecido
+    let url = `${API_URL}/barbeiros?disponivel=true`;
     
-    // Parâmetros para a consulta de disponibilidade
-    const params = {
-        data: date
-    };
-    
-    if (horario) {
-        params.horario = horario;
+    if (date && horario) {
+        // Formatar data e hora para enviar para a API
+        const datetime = `${date}T${horario}`;
+        url += `&data_hora=${datetime}`;
     }
-    
-    // Transformar parâmetros em query string
-    const queryString = Object.keys(params)
-        .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-        .join('&');
     
     // Fazer requisição AJAX
     $.ajax({
-        url: `${API_URL}/agendamentos/disponibilidade?${queryString}`,
+        url: url,
         type: 'GET',
         success: function(response) {
+            // Limpar select
             $(barbeiroSelect).empty();
-            $(barbeiroSelect).append('<option value="">Selecione o barbeiro</option>');
+            $(barbeiroSelect).append('<option value="">Selecione um barbeiro</option>');
             
-            if (response && response.length > 0) {
-                response.forEach(barbeiro => {
+            // Adicionar barbeiros disponíveis
+            if (response && response.items && response.items.length > 0) {
+                response.items.forEach(function(barbeiro) {
                     $(barbeiroSelect).append(`<option value="${barbeiro.id}">${barbeiro.nome}</option>`);
                 });
-            } else {
-                $(barbeiroSelect).append('<option value="" disabled>Nenhum barbeiro disponível</option>');
             }
-        },
-        error: function(xhr) {
-            $(barbeiroSelect).html('<option value="">Erro ao carregar barbeiros</option>');
-            console.error('Erro ao carregar barbeiros:', xhr.responseJSON?.erro || 'Erro desconhecido');
         }
     });
 }
 
 // Carregar lista de clientes
 function loadClientesSelect() {
-    // Exibir loading
-    $(clienteSelect).html('<option value="">Carregando...</option>');
-    
-    // Fazer requisição AJAX
     $.ajax({
         url: `${API_URL}/clientes`,
         type: 'GET',
         success: function(response) {
+            // Limpar select
             $(clienteSelect).empty();
-            $(clienteSelect).append('<option value="">Selecione o cliente</option>');
+            $(clienteSelect).append('<option value="">Selecione um cliente</option>');
             
-            if (response.clientes && response.clientes.length > 0) {
-                response.clientes.forEach(cliente => {
+            // Adicionar clientes
+            if (response && response.items && response.items.length > 0) {
+                response.items.forEach(function(cliente) {
                     $(clienteSelect).append(`<option value="${cliente.id}">${cliente.nome}</option>`);
                 });
-            } else {
-                $(clienteSelect).append('<option value="" disabled>Nenhum cliente cadastrado</option>');
             }
-        },
-        error: function(xhr) {
-            $(clienteSelect).html('<option value="">Erro ao carregar clientes</option>');
-            console.error('Erro ao carregar clientes:', xhr.responseJSON?.erro || 'Erro desconhecido');
         }
     });
 }
 
-// Abrir modal de agendamento (novo ou editar)
-function openModalAgendamento(id = null, clienteId = null, data = null) {
-    // Resetar formulário
+// Abrir modal de agendamento
+function openModalAgendamento(id = null, clienteId = null, dataString = null) {
+    console.log('Abrindo modal de agendamento');
+    
+    // Limpar formulário
     $('#form-agendamento')[0].reset();
     $('#agendamento-id').val('');
-    $('#servicos-ids').val('');
-    $('#servicos-selecionados').empty();
-    $('#agendamento-error').addClass('d-none');
+    $('#servicos-selecionados').html('');
+    $('#servicos-erro').addClass('d-none');
     
-    // Definir título do modal
-    $('#modal-agendamento-title').text(id ? 'Editar Agendamento' : 'Novo Agendamento');
+    // Resetar variáveis
+    servicosSelecionados = [];
+    duracaoTotal = 0;
+    valorTotal = 0;
+    $('#duracao-estimada').val('0');
+    $('#valor-total').val('R$ 0,00');
     
-    // Preencher data (se fornecida)
-    if (data) {
-        $('#agendamento-data').val(data);
-    } else {
-        // Usar a data atual por padrão
-        const today = new Date().toISOString().split('T')[0];
-        $('#agendamento-data').val(today);
-    }
+    modoEdicao = false;
     
-    // Carregar listas de clientes, barbeiros e serviços
-    loadClientesSelect();
-    loadBarbeirosDisponiveis($('#agendamento-data').val(), $('#agendamento-horario').val());
-    loadServicosDisponiveis();
+    // Atualizar título do modal
+    $('#agendamentoModalLabel').text('Novo Agendamento');
     
-    // Preencher cliente (se fornecido)
-    if (clienteId) {
-        $(clienteSelect).val(clienteId);
-    }
-    
-    // Abrir o modal
-    const modal = new bootstrap.Modal(document.getElementById('modal-agendamento'));
-    modal.show();
-    
-    // Se for edição, carregar dados do agendamento
+    // Se for edição
     if (id) {
-        // Mostrar loading
-        $('#modal-agendamento .modal-body').append('<div class="text-center my-3" id="loading-agendamento"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>');
+        console.log('Modo de edição, ID:', id);
+        $('#agendamentoModalLabel').text('Editar Agendamento');
+        $('#agendamento-id').val(id);
+        modoEdicao = true;
         
-        // Fazer requisição AJAX
+        // Carregar dados do agendamento
         $.ajax({
             url: `${API_URL}/agendamentos/${id}`,
             type: 'GET',
-            success: function(response) {
-                // Preencher campos do formulário
-                $('#agendamento-id').val(response.id);
+            success: function(agendamento) {
+                console.log('Dados do agendamento carregados:', agendamento);
                 
-                // Extrair data e hora
-                const dataHora = new Date(response.data_hora_inicio);
+                // Preencher campos
+                $('#cliente-select').val(agendamento.cliente_id);
+                $('#barbeiro-select').val(agendamento.barbeiro_id);
+                
+                // Formatar data e hora
+                const dataHora = new Date(agendamento.data_hora_inicio);
                 const data = dataHora.toISOString().split('T')[0];
                 const hora = dataHora.toTimeString().slice(0, 5);
                 
-                $('#agendamento-data').val(data);
-                $('#agendamento-horario').val(hora);
-                $(clienteSelect).val(response.cliente_id);
-                $(barbeiroSelect).val(response.barbeiro_id);
-                $('#agendamento-observacoes').val(response.observacoes);
+                $('#data-agendamento').val(data);
+                $('#hora-agendamento').val(hora);
+                $('#observacoes').val(agendamento.observacoes);
                 
-                // Preencher serviços selecionados
-                if (response.servicos && response.servicos.length > 0) {
-                    const servicosIds = response.servicos.map(s => s.id);
-                    $('#servicos-ids').val(servicosIds.join(','));
-                    
-                    // Atualizar UI de serviços selecionados
-                    response.servicos.forEach(servico => {
-                        adicionarServicoSelecionado(servico.id, servico.nome, servico.preco);
+                // Adicionar serviços
+                if (agendamento.servicos && agendamento.servicos.length > 0) {
+                    agendamento.servicos.forEach(servico => {
+                        adicionarServicoSelecionado(
+                            servico.id,
+                            servico.nome,
+                            servico.preco,
+                            servico.duracao_estimada_min
+                        );
                     });
-                    
-                    // Atualizar valor total
-                    atualizarValorTotal();
                 }
-                
-                // Remover loading
-                $('#loading-agendamento').remove();
             },
-            error: function(xhr) {
-                // Remover loading
-                $('#loading-agendamento').remove();
-                
-                // Mostrar erro
-                $('#agendamento-error').text(xhr.responseJSON?.erro || 'Erro ao carregar dados do agendamento').removeClass('d-none');
+            error: function(xhr, status, error) {
+                console.error('Erro ao carregar dados do agendamento:', xhr, status, error);
+                mostrarNotificacao('Erro ao carregar dados do agendamento', 'danger');
             }
         });
+    } else {
+        // Se for novo agendamento, preencher com a data atual ou selecionada
+        const hoje = new Date();
+        const dataAgendamento = dataString ? new Date(dataString) : hoje;
+        
+        const dataFormatada = dataAgendamento.toISOString().split('T')[0];
+        $('#data-agendamento').val(dataFormatada);
+        
+        // Horário padrão (9:00)
+        $('#hora-agendamento').val('09:00');
+        
+        // Se foi informado um cliente, selecionar
+        if (clienteId) {
+            $('#cliente-select').val(clienteId);
+        }
+    }
+    
+    // Mostrar modal corretamente usando Bootstrap 5
+    console.log("Modal element:", document.getElementById('agendamentoModal'));
+    const modalElement = document.getElementById('agendamentoModal');
+    
+    if (modalElement) {
+        try {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+            console.log("Modal aberto com sucesso");
+        } catch (error) {
+            console.error("Erro ao abrir o modal:", error);
+            alert("Erro ao abrir o modal. Verifique o console para mais detalhes.");
+        }
+    } else {
+        console.error("Elemento do modal não encontrado!");
+        alert("Elemento do modal não encontrado. Verifique se o ID está correto.");
     }
 }
 
-// Carregar serviços disponíveis
+// Carregar lista de serviços
 function loadServicosDisponiveis() {
-    // Exibir loading
-    $('#servicos-disponiveis').html('<div class="text-center my-3"><div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>');
-    
-    // Fazer requisição AJAX
     $.ajax({
         url: `${API_URL}/servicos`,
         type: 'GET',
         success: function(response) {
-            // Limpar área de serviços
-            $('#servicos-disponiveis').empty();
+            // Limpar select
+            $('#servico-select').empty();
+            $('#servico-select').append('<option value="">Selecione um serviço para adicionar</option>');
             
-            if (!response || response.length === 0) {
-                $('#servicos-disponiveis').html('<p class="text-muted">Nenhum serviço cadastrado</p>');
-                return;
+            // Adicionar serviços
+            if (response && response.items && response.items.length > 0) {
+                response.items.forEach(function(servico) {
+                    $('#servico-select').append(`
+                        <option value="${servico.id}" 
+                                data-preco="${servico.preco}" 
+                                data-duracao="${servico.duracao_estimada_min}">
+                            ${servico.nome}
+                        </option>
+                    `);
+                });
             }
-            
-            // Criar lista de serviços
-            response.forEach(servico => {
-                const servicoHtml = `
-                    <div class="servico-item" data-id="${servico.id}" data-nome="${servico.nome}" data-preco="${servico.preco}">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="fw-bold">${servico.nome}</span>
-                                <br>
-                                <small class="text-muted">${servico.duracao_estimada_min} min</small>
-                            </div>
-                            <div>
-                                <span class="badge bg-primary">${formatarMoeda(servico.preco)}</span>
-                                <button type="button" class="btn btn-sm btn-outline-primary ms-2 btn-add-servico">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                $('#servicos-disponiveis').append(servicoHtml);
-            });
-            
-            // Adicionar evento para botões de adicionar serviço
-            $('.btn-add-servico').on('click', function() {
-                const servicoItem = $(this).closest('.servico-item');
-                const id = servicoItem.data('id');
-                const nome = servicoItem.data('nome');
-                const preco = servicoItem.data('preco');
-                
-                // Verificar se o serviço já está selecionado
-                if ($(`#servico-selecionado-${id}`).length > 0) {
-                    return;
-                }
-                
-                adicionarServicoSelecionado(id, nome, preco);
-                atualizarValorTotal();
-            });
-        },
-        error: function(xhr) {
-            $('#servicos-disponiveis').html(`<p class="text-danger">Erro ao carregar serviços: ${xhr.responseJSON?.erro || 'Erro desconhecido'}</p>`);
         }
     });
 }
 
 // Adicionar serviço à lista de selecionados
-function adicionarServicoSelecionado(id, nome, preco) {
-    // Criar HTML do serviço selecionado
+function adicionarServicoSelecionado(id, nome, preco, duracao) {
+    // Verificar se o serviço já foi adicionado
+    if (servicosSelecionados.find(s => s.id == id)) {
+        return;
+    }
+    
+    // Adicionar serviço à lista
+    servicosSelecionados.push({
+        id: id,
+        nome: nome,
+        preco: preco,
+        duracao: duracao
+    });
+    
+    // Atualizar duração e valor total
+    duracaoTotal += parseInt(duracao);
+    valorTotal += parseFloat(preco);
+    
+    // Atualizar campos
+    $('#duracao-estimada').val(duracaoTotal);
+    $('#valor-total').val(formatarMoeda(valorTotal));
+    
+    // Esconder erro se havia
+    $('#servicos-erro').addClass('d-none');
+    
+    // Adicionar card do serviço à lista
     const servicoHtml = `
-        <div class="servico-selecionado" id="servico-selecionado-${id}" data-id="${id}" data-preco="${preco}">
-            <div class="d-flex justify-content-between align-items-center">
-                <span>${nome}</span>
-                <div>
-                    <span class="badge bg-primary">${formatarMoeda(preco)}</span>
-                    <button type="button" class="btn btn-sm btn-outline-danger ms-2 btn-remove-servico">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
+        <div class="servico-card" data-id="${id}">
+            <div class="servico-info">
+                <span class="servico-nome">${nome}</span>
+                <span class="servico-preco">${formatarMoeda(preco)} | ${duracao} min</span>
             </div>
+            <button type="button" class="btn-remover-servico" onclick="removerServicoSelecionado(${id})">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
     `;
     
-    // Adicionar à lista de serviços selecionados
     $('#servicos-selecionados').append(servicoHtml);
-    
-    // Atualizar campo hidden com IDs dos serviços
-    const servicosIds = $('#servicos-ids').val();
-    const idsArray = servicosIds ? servicosIds.split(',') : [];
-    idsArray.push(id);
-    $('#servicos-ids').val(idsArray.join(','));
-    
-    // Adicionar evento para remover serviço
-    $(`#servico-selecionado-${id} .btn-remove-servico`).on('click', function() {
-        $(this).closest('.servico-selecionado').remove();
-        
-        // Atualizar campo hidden
-        const servicosIds = $('#servicos-ids').val();
-        const idsArray = servicosIds.split(',');
-        const index = idsArray.indexOf(id.toString());
-        if (index > -1) {
-            idsArray.splice(index, 1);
-        }
-        $('#servicos-ids').val(idsArray.join(','));
-        
-        // Atualizar valor total
-        atualizarValorTotal();
-    });
 }
 
-// Atualizar valor total do agendamento
-function atualizarValorTotal() {
-    let total = 0;
+// Remover serviço da lista de selecionados
+function removerServicoSelecionado(id) {
+    // Encontrar serviço na lista
+    const servico = servicosSelecionados.find(s => s.id == id);
+    if (!servico) return;
     
-    // Somar preço de todos os serviços selecionados
-    $('.servico-selecionado').each(function() {
-        total += parseFloat($(this).data('preco'));
-    });
+    // Atualizar duração e valor total
+    duracaoTotal -= parseInt(servico.duracao);
+    valorTotal -= parseFloat(servico.preco);
     
-    // Atualizar valor total
-    $('#valor-total').text(formatarMoeda(total));
-}
-
-// Formatar valor como moeda
-function formatarMoeda(valor) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+    // Atualizar campos
+    $('#duracao-estimada').val(duracaoTotal);
+    $('#valor-total').val(formatarMoeda(valorTotal));
+    
+    // Remover serviço da lista
+    servicosSelecionados = servicosSelecionados.filter(s => s.id != id);
+    
+    // Remover card do serviço
+    $(`.servico-card[data-id="${id}"]`).remove();
 }
 
 // Função para concluir um agendamento
 function concluirAgendamento(id) {
-    if (!confirm('Deseja marcar este agendamento como concluído?')) {
-        return;
-    }
+    $('#confirmacao-titulo').text('Concluir Agendamento');
+    $('#confirmacao-mensagem').text('Deseja marcar este agendamento como concluído?');
+    $('#confirmacao-btn').removeClass('btn-danger').addClass('btn-success').text('Concluir');
     
-    $.ajax({
-        url: `${API_URL}/agendamentos/${id}/concluir`,
-        type: 'POST',
-        success: function(response) {
-            // Recarregar agendamentos
-            loadAgendamentosDia(currentDate);
-            
-            // Mostrar mensagem de sucesso
-            showAlert('success', 'Agendamento concluído com sucesso!');
-        },
-        error: function(xhr) {
-            showAlert('danger', `Erro ao concluir agendamento: ${xhr.responseJSON?.erro || 'Erro desconhecido'}`);
-        }
+    // Configurar ação do botão de confirmação
+    $('#confirmacao-btn').off('click').on('click', function() {
+        $.ajax({
+            url: `${API_URL}/agendamentos/${id}/concluir`,
+            type: 'POST',
+            success: function() {
+                $('#confirmacaoModal').modal('hide');
+                loadAgendamentosDia(currentDate);
+                loadProximosAgendamentos();
+                mostrarNotificacao('Agendamento concluído com sucesso!', 'success');
+            },
+            error: function(xhr) {
+                $('#confirmacaoModal').modal('hide');
+                mostrarNotificacao('Erro ao concluir agendamento: ' + (xhr.responseJSON?.erro || 'Erro desconhecido'), 'danger');
+            }
+        });
     });
+    
+    $('#confirmacaoModal').modal('show');
 }
 
 // Função para cancelar um agendamento
 function cancelarAgendamento(id) {
-    if (!confirm('Deseja cancelar este agendamento?')) {
-        return;
-    }
+    $('#confirmacao-titulo').text('Cancelar Agendamento');
+    $('#confirmacao-mensagem').text('Deseja realmente cancelar este agendamento?');
+    $('#confirmacao-btn').removeClass('btn-success').addClass('btn-danger').text('Cancelar');
     
-    $.ajax({
-        url: `${API_URL}/agendamentos/${id}/cancelar`,
-        type: 'POST',
-        success: function(response) {
-            // Recarregar agendamentos
-            loadAgendamentosDia(currentDate);
-            
-            // Mostrar mensagem de sucesso
-            showAlert('success', 'Agendamento cancelado com sucesso!');
-        },
-        error: function(xhr) {
-            showAlert('danger', `Erro ao cancelar agendamento: ${xhr.responseJSON?.erro || 'Erro desconhecido'}`);
-        }
+    // Configurar ação do botão de confirmação
+    $('#confirmacao-btn').off('click').on('click', function() {
+        $.ajax({
+            url: `${API_URL}/agendamentos/${id}/cancelar`,
+            type: 'POST',
+            success: function() {
+                $('#confirmacaoModal').modal('hide');
+                loadAgendamentosDia(currentDate);
+                loadProximosAgendamentos();
+                mostrarNotificacao('Agendamento cancelado com sucesso!', 'success');
+            },
+            error: function(xhr) {
+                $('#confirmacaoModal').modal('hide');
+                mostrarNotificacao('Erro ao cancelar agendamento: ' + (xhr.responseJSON?.erro || 'Erro desconhecido'), 'danger');
+            }
+        });
+    });
+    
+    $('#confirmacaoModal').modal('show');
+}
+
+// Visualizar agendamento
+function visualizarAgendamento(id) {
+    openModalAgendamento(id);
+    
+    // Desabilitar campos para visualização
+    $('#cliente-select').prop('disabled', true);
+    $('#barbeiro-select').prop('disabled', true);
+    $('#data-agendamento').prop('disabled', true);
+    $('#hora-agendamento').prop('disabled', true);
+    $('#btn-adicionar-servico').prop('disabled', true);
+    $('#btn-novo-cliente').prop('disabled', true);
+    $('#observacoes').prop('disabled', true);
+    $('.btn-remover-servico').prop('disabled', true);
+    
+    // Alterar botão salvar para fechar
+    $('#btn-salvar-agendamento').text('Fechar').off('click').on('click', function() {
+        $('#agendamentoModal').modal('hide');
     });
 }
 
-// Utilitário: Formatar data (YYYY-MM-DD)
+// Editar agendamento
+function editarAgendamento(id) {
+    openModalAgendamento(id);
+}
+
+// Formatar data para YYYY-MM-DD
 function formatDate(date) {
     const d = new Date(date);
     let month = '' + (d.getMonth() + 1);
@@ -617,143 +840,275 @@ function formatDate(date) {
     return [year, month, day].join('-');
 }
 
-// Utilitário: Formatar data de exibição (DD/MM/YYYY)
-function formatDisplayDate(dateString) {
-    const parts = dateString.split('-');
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+// Converter string de data para Date
+function parseDate(dateString) {
+    if (typeof dateString === 'string') {
+        return new Date(dateString);
+    }
+    return dateString;
 }
 
-// Função para salvar agendamento (criar ou atualizar)
+// Formatar data para exibição (DD/MM/YYYY)
+function formatDisplayDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR');
+}
+
+// Salvar agendamento
 function salvarAgendamento() {
     // Validar formulário
-    if (!validarFormulario('#form-agendamento')) {
+    if (!validarFormularioAgendamento()) {
         return;
     }
     
     // Obter dados do formulário
-    const id = $('#agendamento-id').val();
-    const clienteId = $(clienteSelect).val();
-    const barbeiroId = $(barbeiroSelect).val();
-    const data = $('#agendamento-data').val();
-    const horario = $('#agendamento-horario').val();
-    const dataHoraInicio = `${data}T${horario}:00`;
-    const servicosIds = $('#servicos-ids').val().split(',').filter(id => id !== '');
-    const observacoes = $('#agendamento-observacoes').val();
+    const clienteId = $('#cliente-select').val();
+    const barbeiroId = $('#barbeiro-select').val();
+    const data = $('#data-agendamento').val();
+    const hora = $('#hora-agendamento').val();
+    const observacoes = $('#observacoes').val();
     
-    // Verificar se pelo menos um serviço foi selecionado
-    if (servicosIds.length === 0) {
-        $('#agendamento-error').text('Selecione pelo menos um serviço').removeClass('d-none');
-        return;
-    }
+    // Combinar data e hora
+    const dataHoraInicio = `${data}T${hora}`;
     
-    // Transformar serviços em formato de API
-    const servicos = servicosIds.map(servico_id => ({ servico_id: parseInt(servico_id) }));
+    // Mapear serviços selecionados
+    const servicos = servicosSelecionados.map(s => ({ servico_id: s.id }));
     
-    // Dados para enviar à API
-    const dadosAgendamento = {
+    // Construir payload
+    const payload = {
         cliente_id: parseInt(clienteId),
         barbeiro_id: parseInt(barbeiroId),
         data_hora_inicio: dataHoraInicio,
-        servicos,
-        observacoes
+        servicos: servicos,
+        observacoes: observacoes
     };
     
-    // URL e método da requisição (POST para criar, PUT para atualizar)
+    // ID do agendamento (se estiver editando)
+    const agendamentoId = $('#agendamento-id').val();
+    
+    // URL e método da requisição
     let url = `${API_URL}/agendamentos`;
     let method = 'POST';
     
-    if (id) {
-        url += `/${id}`;
+    if (agendamentoId) {
+        url += `/${agendamentoId}`;
         method = 'PUT';
     }
     
-    // Mostrar loading
-    $('#btn-salvar-agendamento').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...');
-    
-    // Fazer requisição AJAX
+    // Enviar requisição
     $.ajax({
-        url,
+        url: url,
         type: method,
         contentType: 'application/json',
-        data: JSON.stringify(dadosAgendamento),
+        data: JSON.stringify(payload),
         success: function(response) {
             // Fechar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modal-agendamento'));
-            modal.hide();
+            $('#agendamentoModal').modal('hide');
             
-            // Atualizar lista de agendamentos
-            loadAgendamentosDia(data);
+            // Recarregar agendamentos
+            loadAgendamentosDia(currentDate);
+            loadProximosAgendamentos();
             
-            // Mostrar mensagem de sucesso
-            showAlert('success', id ? 'Agendamento atualizado com sucesso!' : 'Agendamento criado com sucesso!');
+            // Notificar usuário
+            if (agendamentoId) {
+                mostrarNotificacao('Agendamento atualizado com sucesso!', 'success');
+            } else {
+                mostrarNotificacao('Agendamento criado com sucesso!', 'success');
+            }
         },
         error: function(xhr) {
-            let erro = "Erro ao salvar agendamento";
+            let mensagem = 'Erro ao salvar agendamento';
+            
             if (xhr.responseJSON && xhr.responseJSON.erro) {
-                erro = xhr.responseJSON.erro;
-                if (xhr.responseJSON.detalhes) {
-                    erro += `: ${JSON.stringify(xhr.responseJSON.detalhes)}`;
+                mensagem += ': ' + xhr.responseJSON.erro;
+                
+                // Tratar erros específicos
+                if (xhr.responseJSON.erro.includes('disponível')) {
+                    mostrarNotificacao('O horário selecionado não está disponível para este barbeiro', 'danger');
+                    return;
                 }
             }
-            $('#agendamento-error').text(erro).removeClass('d-none');
-        },
-        complete: function() {
-            $('#btn-salvar-agendamento').prop('disabled', false).html('Salvar');
+            
+            mostrarNotificacao(mensagem, 'danger');
         }
     });
 }
 
-// Eventos
-$(document).ready(function() {
-    // Evento para salvar agendamento
-    $('#btn-salvar-agendamento').on('click', function() {
-        salvarAgendamento();
-    });
+// Validar formulário de agendamento
+function validarFormularioAgendamento() {
+    let valido = true;
     
-    // Eventos para atualizar barbeiros disponíveis quando mudar data ou horário
-    $('#agendamento-data, #agendamento-horario').on('change', function() {
-        const data = $('#agendamento-data').val();
-        const horario = $('#agendamento-horario').val();
-        if (data && horario) {
-            loadBarbeirosDisponiveis(data, horario);
-        }
-    });
-    
-    // Adicionar evento de clique nos dias do calendário
-    $(document).on('click', '.calendar-day', function() {
-        $('.calendar-day').removeClass('active');
-        $(this).addClass('active');
-        
-        const date = $(this).data('date');
-        loadAgendamentosDia(date);
-    });
-    
-    // Evento para novo agendamento
-    $(document).on('click', '#btn-novo-agendamento, #btn-novo-agendamento-empty', function() {
-        openModalAgendamento(null, null, currentDate);
-    });
-    
-    // Evento para editar agendamento
-    $(document).on('click', '.action-icon.edit', function() {
-        const id = $(this).data('id');
-        openModalAgendamento(id);
-    });
-    
-    // Máscara para horário se o plugin estiver disponível
-    if ($.fn.mask) {
-        $('#agendamento-horario').mask('00:00');
+    // Validar campos básicos
+    if (!$('#cliente-select').val()) {
+        mostrarNotificacao('Selecione um cliente', 'warning');
+        valido = false;
     }
-});
-
-// Carregar barbeiros disponíveis com base na data e horário selecionados
-function carregarBarbeirosDisponiveis() {
-    const data = $('#agendamento-data').val();
-    const horario = $('#agendamento-horario').val();
     
-    if (!data || !horario) {
+    if (!$('#barbeiro-select').val()) {
+        mostrarNotificacao('Selecione um barbeiro', 'warning');
+        valido = false;
+    }
+    
+    if (!$('#data-agendamento').val()) {
+        mostrarNotificacao('Selecione uma data', 'warning');
+        valido = false;
+    }
+    
+    if (!$('#hora-agendamento').val()) {
+        mostrarNotificacao('Selecione um horário', 'warning');
+        valido = false;
+    }
+    
+    // Validar serviços
+    if (servicosSelecionados.length === 0) {
+        $('#servicos-erro').removeClass('d-none');
+        mostrarNotificacao('Selecione pelo menos um serviço', 'warning');
+        valido = false;
+    }
+    
+    return valido;
+}
+
+// Mostrar notificação
+function mostrarNotificacao(mensagem, tipo) {
+    console.log(`Notificação: ${mensagem} (tipo: ${tipo})`);
+    
+    // Verificar se a função toast está disponível no escopo global
+    if (typeof toast === 'function') {
+        toast(mensagem, tipo);
+    } else {
+        // Fallback para alert se a função toast não estiver disponível
+        alert(mensagem);
+    }
+}
+
+// Salvar cliente rápido
+function salvarClienteRapido() {
+    // Validar formulário
+    if (!$('#cliente-nome').val() || !$('#cliente-telefone').val()) {
+        mostrarNotificacao('Preencha os campos obrigatórios', 'warning');
         return;
     }
     
-    // Chamar a função loadBarbeirosDisponiveis com os parâmetros obtidos
-    loadBarbeirosDisponiveis(data, horario);
+    // Obter dados do formulário
+    const nome = $('#cliente-nome').val();
+    const telefone = $('#cliente-telefone').val();
+    const email = $('#cliente-email').val();
+    
+    // Construir payload
+    const payload = {
+        nome: nome,
+        telefone: telefone,
+        email: email || null
+    };
+    
+    // Enviar requisição
+    $.ajax({
+        url: `${API_URL}/clientes`,
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(payload),
+        success: function(response) {
+            // Fechar modal
+            $('#novoClienteModal').modal('hide');
+            
+            // Recarregar select de clientes
+            loadClientesSelect();
+            
+            // Selecionar o novo cliente (com timeout para garantir que os dados foram carregados)
+            setTimeout(function() {
+                $(clienteSelect).val(response.id);
+                $(clienteSelect).trigger('change');
+            }, 500);
+            
+            // Notificar usuário
+            mostrarNotificacao('Cliente cadastrado com sucesso!', 'success');
+        },
+        error: function(xhr) {
+            mostrarNotificacao('Erro ao cadastrar cliente: ' + (xhr.responseJSON?.erro || 'Erro desconhecido'), 'danger');
+        }
+    });
+}
+
+// Buscar agendamentos
+function buscarAgendamentos() {
+    const busca = $('#agenda-busca').val();
+    
+    if (!busca || busca.length < 3) {
+        mostrarNotificacao('Digite pelo menos 3 caracteres para buscar', 'warning');
+        return;
+    }
+    
+    // Exibir loading
+    $('#agenda-lista').html('');
+    $('#agenda-loading').removeClass('d-none');
+    $('#agenda-empty').addClass('d-none');
+    
+    // Fazer requisição AJAX
+    $.ajax({
+        url: `${API_URL}/agendamentos?busca=${encodeURIComponent(busca)}`,
+        type: 'GET',
+        success: function(response) {
+            // Esconder loading
+            $('#agenda-loading').addClass('d-none');
+            
+            if (!response || !response.items || response.items.length === 0) {
+                // Exibir mensagem de lista vazia
+                $('#agenda-empty').removeClass('d-none');
+            } else {
+                // Renderizar agendamentos
+                renderizarAgendamentos(response.items);
+                
+                // Atualizar título
+                $('#selected-date-display').text(`Resultados da busca: "${busca}"`);
+            }
+        },
+        error: function() {
+            // Esconder loading e exibir erro
+            $('#agenda-loading').addClass('d-none');
+            $('#agenda-lista').html(`
+                <tr>
+                    <td colspan="6" class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Erro ao buscar agendamentos. Tente novamente.
+                    </td>
+                </tr>
+            `);
+        }
+    });
+}
+
+// Formatar moeda
+function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+}
+
+// Função para mostrar erro global
+function mostrarErroAPI(mensagem) {
+    // Esconder loadings
+    $('#agenda-loading').addClass('d-none');
+    $('#proximos-agenda-loading').addClass('d-none');
+    
+    // Mostrar erro
+    const alertaHtml = `
+        <div class="alert alert-danger" role="alert">
+            <h4 class="alert-heading">Erro de conexão!</h4>
+            <p>${mensagem}</p>
+            <hr>
+            <p class="mb-0">Tente recarregar a página ou contacte o suporte técnico.</p>
+        </div>
+    `;
+    
+    $('#agenda-lista').html(`
+        <tr>
+            <td colspan="6" class="text-center">
+                ${alertaHtml}
+            </td>
+        </tr>
+    `);
+    
+    $('#proximos-agenda').html(alertaHtml);
+    
+    // Também mostrar uma notificação toast
+    mostrarNotificacao(mensagem, 'danger');
 } 

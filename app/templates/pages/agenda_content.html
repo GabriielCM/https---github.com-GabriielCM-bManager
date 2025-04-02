@@ -1,0 +1,265 @@
+<!-- Agenda -->
+<div id="agenda">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Buscar agendamento por cliente ou serviço..." id="agenda-busca">
+                <button class="btn btn-primary" type="button" id="agenda-busca-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            <button type="button" class="btn btn-success" id="agenda-novo-btn">
+                <i class="fas fa-plus me-2"></i>Novo Agendamento
+            </button>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between">
+                    <h6 class="m-0 font-weight-bold" id="selected-date-display">Agendamentos do Dia</h6>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="anterior-btn">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="hoje-btn">
+                            Hoje
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="proximo-btn">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Horário</th>
+                                    <th>Cliente</th>
+                                    <th>Serviço</th>
+                                    <th>Barbeiro</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agenda-lista">
+                                <!-- Será preenchido via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="agenda-empty" class="text-center py-4 d-none">
+                        <i class="fas fa-calendar-check fa-3x text-gray-300 mb-3"></i>
+                        <p>Nenhum agendamento encontrado para esta data.</p>
+                        <button class="btn btn-primary" id="agenda-novo-btn-empty">
+                            <i class="fas fa-plus me-2"></i>Agendar Atendimento
+                        </button>
+                    </div>
+                    <div id="agenda-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-2">Carregando agendamentos...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card de Resumo da Agenda -->
+            <div class="card shadow mt-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Resumo do Dia</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="agendamentos-resumo">
+                        <!-- Será preenchido via JavaScript -->
+                        <div class="col-md-4 text-center">
+                            <h4 id="total-agendamentos">0</h4>
+                            <p>Agendamentos</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h4 id="total-valor">R$ 0,00</h4>
+                            <p>Faturamento</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h4 id="total-clientes">0</h4>
+                            <p>Clientes Atendidos</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Calendário</h6>
+                </div>
+                <div class="card-body">
+                    <!-- Mini calendário -->
+                    <div id="mini-calendario" class="calendar-container">
+                        <div class="calendar-header d-flex justify-content-between mb-3">
+                            <div id="current-month">Abril 2023</div>
+                            <div class="calendar-nav">
+                                <button class="btn btn-sm btn-link" id="prev-month">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button class="btn btn-sm btn-link" id="current-month-btn">
+                                    Hoje
+                                </button>
+                                <button class="btn btn-sm btn-link" id="next-month">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="calendar-weekdays mb-2">
+                            <div class="calendar-grid">
+                                <div class="text-center">Dom</div>
+                                <div class="text-center">Seg</div>
+                                <div class="text-center">Ter</div>
+                                <div class="text-center">Qua</div>
+                                <div class="text-center">Qui</div>
+                                <div class="text-center">Sex</div>
+                                <div class="text-center">Sáb</div>
+                            </div>
+                        </div>
+                        <div id="calendar-days" class="calendar-grid">
+                            <!-- Dias do calendário serão gerados via JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Próximos Agendamentos</h6>
+                </div>
+                <div class="card-body">
+                    <div id="proximos-agenda">
+                        <!-- Lista de próximos agendamentos será gerada via JavaScript -->
+                    </div>
+                    <div id="proximos-agenda-empty" class="text-center py-4 d-none">
+                        <p>Não há agendamentos futuros.</p>
+                    </div>
+                    <div id="proximos-agenda-loading" class="text-center py-4">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Incluir o componente de modal de agendamento -->
+{% include 'components/modal-agendamento.html' %}
+
+{% if modo_teste %}
+<!-- Painel de diagnóstico - só visível no modo de teste -->
+<div class="card shadow mt-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-danger">Diagnóstico do Sistema (Modo Teste)</h6>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            <strong>Atenção!</strong> Esta área só é visível no modo de teste e serve para diagnóstico de problemas.
+        </div>
+        
+        <h5>Status da API</h5>
+        <div class="mb-3">
+            <button class="btn btn-sm btn-info me-2" id="testar-api">Testar API</button>
+            <button class="btn btn-sm btn-info me-2" id="testar-agendamentos">Testar Agendamentos</button>
+            <button class="btn btn-sm btn-info" id="testar-modal">Testar Modal</button>
+        </div>
+        <div id="resultado-diagnostico" class="mt-2 bg-light p-3 rounded">
+            <p class="text-muted">Os resultados dos testes aparecerão aqui.</p>
+        </div>
+        
+        <script>
+            $(document).ready(function() {
+                // Teste da API
+                $('#testar-api').on('click', function() {
+                    $('#resultado-diagnostico').html('<p>Verificando API...</p>');
+                    $.ajax({
+                        url: '/api',
+                        type: 'GET',
+                        success: function(data) {
+                            $('#resultado-diagnostico').html(
+                                `<div class="alert alert-success">
+                                    API está funcionando! Resposta: ${JSON.stringify(data)}
+                                </div>`
+                            );
+                        },
+                        error: function(xhr, status, error) {
+                            $('#resultado-diagnostico').html(
+                                `<div class="alert alert-danger">
+                                    Erro na API: ${error}<br>
+                                    Status: ${status}<br>
+                                    Resposta: ${xhr.responseText}
+                                </div>`
+                            );
+                        }
+                    });
+                });
+                
+                // Teste de agendamentos
+                $('#testar-agendamentos').on('click', function() {
+                    $('#resultado-diagnostico').html('<p>Verificando agendamentos...</p>');
+                    const hoje = formatDate(new Date());
+                    $.ajax({
+                        url: `/api/agendamentos/data/${hoje}`,
+                        type: 'GET',
+                        success: function(data) {
+                            $('#resultado-diagnostico').html(
+                                `<div class="alert alert-success">
+                                    Agendamentos de hoje: ${data.length} encontrados<br>
+                                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                                </div>`
+                            );
+                        },
+                        error: function(xhr, status, error) {
+                            $('#resultado-diagnostico').html(
+                                `<div class="alert alert-danger">
+                                    Erro ao buscar agendamentos: ${error}<br>
+                                    Status: ${status}<br>
+                                    Resposta: ${xhr.responseText}
+                                </div>`
+                            );
+                        }
+                    });
+                });
+                
+                // Teste de modal
+                $('#testar-modal').on('click', function() {
+                    const modalElement = document.getElementById('agendamentoModal');
+                    $('#resultado-diagnostico').html('');
+                    
+                    if (modalElement) {
+                        $('#resultado-diagnostico').append('<p>Elemento do modal encontrado ✓</p>');
+                        
+                        if (typeof bootstrap !== 'undefined') {
+                            $('#resultado-diagnostico').append(`<p>Bootstrap carregado. Versão: ${bootstrap.Tooltip.VERSION} ✓</p>`);
+                            
+                            try {
+                                const modal = new bootstrap.Modal(modalElement);
+                                $('#resultado-diagnostico').append('<p>Modal inicializado com sucesso ✓</p>');
+                                modal.show();
+                                $('#resultado-diagnostico').append('<p>Modal exibido ✓</p>');
+                            } catch (error) {
+                                $('#resultado-diagnostico').append(`<p class="text-danger">Erro ao abrir modal: ${error.message} ✗</p>`);
+                            }
+                        } else {
+                            $('#resultado-diagnostico').append('<p class="text-danger">Bootstrap não está carregado! ✗</p>');
+                        }
+                    } else {
+                        $('#resultado-diagnostico').html('<p class="text-danger">Elemento do modal não encontrado! ✗</p>');
+                    }
+                });
+            });
+        </script>
+    </div>
+</div>
+{% endif %} 

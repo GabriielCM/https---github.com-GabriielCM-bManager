@@ -3,11 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
     <title>{% block title %}B-Manager - Sistema de Gerenciamento para Barbearias{% endblock %}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Substituto para fonts.googleapis.com -->
+    <style>
+        /* Definições de fonte Poppins local */
+        @font-face {
+            font-family: 'Poppins';
+            font-style: normal;
+            font-weight: 300;
+            src: local('Poppins Light'), local('Poppins-Light');
+        }
+        @font-face {
+            font-family: 'Poppins';
+            font-style: normal;
+            font-weight: 400;
+            src: local('Poppins Regular'), local('Poppins-Regular');
+        }
+        @font-face {
+            font-family: 'Poppins';
+            font-style: normal;
+            font-weight: 500;
+            src: local('Poppins Medium'), local('Poppins-Medium');
+        }
+        @font-face {
+            font-family: 'Poppins';
+            font-style: normal;
+            font-weight: 600;
+            src: local('Poppins SemiBold'), local('Poppins-SemiBold');
+        }
+        @font-face {
+            font-family: 'Poppins';
+            font-style: normal;
+            font-weight: 700;
+            src: local('Poppins Bold'), local('Poppins-Bold');
+        }
+    </style>
+    <!-- Fallback para sistema padrão de fontes se Poppins não estiver disponível -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    {% block styles %}{% endblock %}
     {% block head_extras %}{% endblock %}
 </head>
 <body>
@@ -40,9 +76,43 @@
         </div>
     </div>
 
+    <!-- Toasts -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" id="toast-title">Notificação</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Fechar"></button>
+            </div>
+            <div class="toast-body" id="toast-message">
+                <!-- Mensagem do toast -->
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Função para exibir toast
+        function toast(message, type = 'info') {
+            const toastEl = document.getElementById('toast');
+            const toastTitle = document.getElementById('toast-title');
+            const toastMessage = document.getElementById('toast-message');
+            
+            // Definir título e mensagem
+            toastTitle.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+            toastMessage.textContent = message;
+            
+            // Definir classe do toast
+            toastEl.className = 'toast';
+            toastEl.classList.add(`text-bg-${type}`);
+            
+            // Criar novo objeto Toast
+            const bsToast = new bootstrap.Toast(toastEl);
+            bsToast.show();
+        }
+    </script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>

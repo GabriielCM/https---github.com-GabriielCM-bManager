@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste da API de Agendamentos</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+        .btn { 
+            background-color: #007bff; 
+            color: white; 
+            padding: 10px 15px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+        }
+        .error { color: red; }
+        .success { color: green; }
+        pre { background-color: #f8f9fa; padding: 10px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Teste da API de Agendamentos</h1>
+        
+        <div class="card">
+            <h2>Agendamentos do Dia</h2>
+            <button id="btn-carregar-dia" class="btn">Carregar Agendamentos</button>
+            <div id="resultado-dia">
+                <p>Clique no botão para carregar os agendamentos do dia.</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Próximos Agendamentos</h2>
+            <button id="btn-carregar-proximos" class="btn">Carregar Próximos</button>
+            <div id="resultado-proximos">
+                <p>Clique no botão para carregar os próximos agendamentos.</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Novo Agendamento (Teste de Modal)</h2>
+            <button id="btn-novo-agendamento" class="btn">Novo Agendamento</button>
+            <div id="resultado-novo">
+                <p>Clique no botão para testar a abertura do modal.</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        $(document).ready(function() {
+            const API_URL = '/api';
+            
+            // Função para formatar data YYYY-MM-DD
+            function formatDate(date) {
+                const d = new Date(date);
+                let month = '' + (d.getMonth() + 1);
+                let day = '' + d.getDate();
+                const year = d.getFullYear();
+                
+                if (month.length < 2) month = '0' + month;
+                if (day.length < 2) day = '0' + day;
+                
+                return [year, month, day].join('-');
+            }
+            
+            // Formatar data para exibição (DD/MM/YYYY)
+            function formatDisplayDate(dateString) {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('pt-BR');
+            }
+            
+            // Carregar agendamentos do dia
+            $('#btn-carregar-dia').on('click', function() {
+                const hoje = formatDate(new Date());
+                const url = `${API_URL}/agendamentos/data/${hoje}`;
+                
+                $('#resultado-dia').html('<p>Carregando agendamentos...</p>');
+                console.log('Fazendo requisição para:', url);
+                
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function(data) {
+                        console.log('Resposta recebida:', data);
+                        
+                        if (data && data.length > 0) {
+                            let html = '<h3 class="success">Agendamentos encontrados: ' + data.length + '</h3>';
+                            html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                            $('#resultado-dia').html(html);
+                        } else {
+                            $('#resultado-dia').html('<p>Nenhum agendamento encontrado para o dia.</p>');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Erro ao carregar agendamentos:', xhr, status, error);
+                        $('#resultado-dia').html('<p class="error">Erro ao carregar agendamentos: ' + error + '</p>');
+                        $('#resultado-dia').append('<pre>' + xhr.responseText + '</pre>');
+                    }
+                });
+            });
+            
+            // Carregar próximos agendamentos
+            $('#btn-carregar-proximos').on('click', function() {
+                const hoje = formatDate(new Date());
+                const url = `${API_URL}/agendamentos?data_inicio=${hoje}&status=pendente&por_pagina=5`;
+                
+                $('#resultado-proximos').html('<p>Carregando próximos agendamentos...</p>');
+                console.log('Fazendo requisição para:', url);
+                
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function(data) {
+                        console.log('Resposta recebida:', data);
+                        
+                        if (data && data.items && data.items.length > 0) {
+                            let html = '<h3 class="success">Próximos agendamentos encontrados: ' + data.items.length + '</h3>';
+                            html += '<pre>' + JSON.stringify(data.items, null, 2) + '</pre>';
+                            $('#resultado-proximos').html(html);
+                        } else {
+                            $('#resultado-proximos').html('<p>Nenhum agendamento futuro encontrado.</p>');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Erro ao carregar próximos agendamentos:', xhr, status, error);
+                        $('#resultado-proximos').html('<p class="error">Erro ao carregar próximos agendamentos: ' + error + '</p>');
+                        $('#resultado-proximos').append('<pre>' + xhr.responseText + '</pre>');
+                    }
+                });
+            });
+            
+            // Testar botão novo agendamento
+            $('#btn-novo-agendamento').on('click', function() {
+                console.log('Botão Novo Agendamento clicado!');
+                $('#resultado-novo').html(`
+                    <p class="success">Botão funcionou! No código atual, deveria chamar:</p>
+                    <pre>openModalAgendamento()</pre>
+                `);
+            });
+        });
+    </script>
+</body>
+</html> 

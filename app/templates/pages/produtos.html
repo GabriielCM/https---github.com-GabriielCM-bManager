@@ -1,0 +1,153 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Produtos | B-Manager{% endblock %}
+
+{% block sidebar %}
+    {% include "components/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div id="produtos">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Buscar produto por nome ou categoria..." id="produto-busca">
+                <button class="btn btn-primary" type="button" id="produto-busca-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            <button type="button" class="btn btn-success" id="produto-novo-btn">
+                <i class="fas fa-plus me-2"></i>Novo Produto
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold">Estoque de Produtos</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="produtosDropdownMenuLink"
+                            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                            aria-labelledby="produtosDropdownMenuLink">
+                            <div class="dropdown-header">Opções:</div>
+                            <a class="dropdown-item" href="#" id="produtos-exportar">Exportar</a>
+                            <a class="dropdown-item" href="#" id="produtos-imprimir">Imprimir</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#" id="produtos-importar">Importar Produtos</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="responsive-table">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nome</th>
+                                    <th>Categoria</th>
+                                    <th>Estoque</th>
+                                    <th>Preço</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="produtos-lista">
+                                <!-- Lista de produtos será carregada via AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="produtos-empty" class="text-center py-4 d-none">
+                        <i class="fas fa-box-open fa-3x text-gray-300 mb-3"></i>
+                        <p>Nenhum produto encontrado.</p>
+                        <button class="btn btn-primary" id="produto-novo-btn-empty">
+                            <i class="fas fa-plus me-2"></i>Cadastrar Produto
+                        </button>
+                    </div>
+                    <div id="produtos-loading" class="text-center py-4 d-none">
+                        <div class="loading-spinner"></div>
+                        <p>Carregando produtos...</p>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <nav aria-label="Paginação de produtos">
+                        <ul class="pagination justify-content-center mb-0" id="produtos-paginacao">
+                            <!-- Paginação será gerada via JavaScript -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Produtos com Baixo Estoque</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Estoque Atual</th>
+                                    <th>Estoque Mínimo</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="produtos-baixo-estoque">
+                                <!-- Lista de produtos com baixo estoque será carregada via AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="produtos-baixo-estoque-empty" class="text-center py-2 d-none">
+                        <p>Nenhum produto com baixo estoque.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Produtos Mais Vendidos</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="produtos-mais-vendidos-chart"></canvas>
+                    </div>
+                    <div id="produtos-mais-vendidos-empty" class="text-center py-4 d-none">
+                        <p>Não há dados suficientes para gerar o gráfico.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Script para a página de produtos -->
+<script src="/static/js/produtos.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Página de produtos carregada com sucesso!');
+        
+        // Destacar o link de produtos no sidebar como ativo
+        const produtosLink = document.getElementById('produtos-link');
+        if (produtosLink) {
+            const sidebarLinks = document.querySelectorAll('.nav-link');
+            sidebarLinks.forEach(link => link.classList.remove('active'));
+            produtosLink.classList.add('active');
+        }
+    });
+</script>
+{% endblock %} 

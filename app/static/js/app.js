@@ -337,22 +337,120 @@ const Dashboard = {
     }
 };
 
-// Inicialização da aplicação
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar o Dashboard quando necessário
-    const dashboardContainer = document.getElementById('dashboard-container');
+// Inicializar links do sidebar
+function initSidebarLinks() {
+    console.log('Inicializando links do sidebar');
     
-    // Observa mudanças na visibilidade do dashboard
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                const isVisible = !dashboardContainer.classList.contains('d-none');
-                if (isVisible) {
-                    Dashboard.init();
-                }
-            }
+    // Link para agenda - permitir navegação normal para a página dedicada
+    const agendaLink = document.getElementById('agenda-link');
+    if (agendaLink) {
+        console.log('Configurando link da agenda');
+        agendaLink.setAttribute('href', '/agenda');
+        
+        // Apenas log para depuração, sem preventDefault para permitir a navegação normal
+        agendaLink.addEventListener('click', function(event) {
+            console.log('Link da agenda clicado, redirecionando para:', agendaLink.getAttribute('href'));
         });
-    });
+    }
     
-    observer.observe(dashboardContainer, { attributes: true });
+    // Função global para mostrar uma página (usada apenas nos links que não têm páginas dedicadas)
+    window.showPage = function(page) {
+        // Verificar se estamos na página index, que contém todos os containers
+        if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+            console.log('Mostrando página:', page);
+            // Esta função está definida apenas na página index.html
+            if (typeof document.getElementById('dashboard-container') !== 'undefined') {
+                // Esconder todos os containers
+                const containers = {
+                    'dashboard': document.getElementById('dashboard-container'),
+                    'agenda': document.getElementById('agenda-container'),
+                    'clientes': document.getElementById('clientes-container'),
+                    'servicos': document.getElementById('servicos-container'),
+                    'produtos': document.getElementById('produtos-container'),
+                    'vendas': document.getElementById('vendas-container'),
+                    'barbeiros': document.getElementById('barbeiros-container'),
+                    'relatorios': document.getElementById('relatorios-container'),
+                    'config': document.getElementById('config-container')
+                };
+                
+                // Esconder todos
+                Object.values(containers).forEach(container => {
+                    if (container) container.classList.add('d-none');
+                });
+                
+                // Mostrar o específico
+                if (containers[page]) {
+                    containers[page].classList.remove('d-none');
+                }
+                
+                // Atualizar classe ativa nos links
+                const menuLinks = {
+                    'dashboard': document.querySelector('.nav-link.active'),
+                    'agenda': document.getElementById('agenda-link'),
+                    'clientes': document.getElementById('clientes-link'),
+                    'servicos': document.getElementById('servicos-link'),
+                    'produtos': document.getElementById('produtos-link'),
+                    'vendas': document.getElementById('vendas-link'),
+                    'barbeiros': document.getElementById('barbeiros-link'),
+                    'relatorios': document.getElementById('relatorios-link'),
+                    'config': document.getElementById('config-link')
+                };
+                
+                Object.entries(menuLinks).forEach(([key, link]) => {
+                    if (link) {
+                        if (key === page) {
+                            link.classList.add('active');
+                        } else {
+                            link.classList.remove('active');
+                        }
+                    }
+                });
+            }
+        } else {
+            // Se não estamos na página index, redirecionar para a página correta
+            window.location.href = '/' + page;
+        }
+    };
+    
+    // Links para outros módulos - usar páginas dedicadas, se disponíveis
+    const clientesLink = document.getElementById('clientes-link');
+    if (clientesLink) {
+        clientesLink.setAttribute('href', '/clientes');
+    }
+    
+    const servicosLink = document.getElementById('servicos-link');
+    if (servicosLink) {
+        servicosLink.setAttribute('href', '/servicos');
+    }
+    
+    const produtosLink = document.getElementById('produtos-link');
+    if (produtosLink) {
+        produtosLink.setAttribute('href', '/produtos');
+    }
+    
+    const vendasLink = document.getElementById('vendas-link');
+    if (vendasLink) {
+        vendasLink.setAttribute('href', '/vendas');
+    }
+    
+    const barbeirosLink = document.getElementById('barbeiros-link');
+    if (barbeirosLink) {
+        barbeirosLink.setAttribute('href', '/barbeiros');
+    }
+    
+    const relatoriosLink = document.getElementById('relatorios-link');
+    if (relatoriosLink) {
+        relatoriosLink.setAttribute('href', '/relatorios');
+    }
+    
+    const configLink = document.getElementById('config-link');
+    if (configLink) {
+        configLink.setAttribute('href', '/configuracoes');
+    }
+}
+
+// Executar quando o documento estiver carregado
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM carregado, inicializando links');
+    initSidebarLinks();
 });

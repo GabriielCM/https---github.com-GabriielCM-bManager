@@ -17,7 +17,7 @@
 
     <!-- Seção de agenda (escondida inicialmente) -->
     <div class="d-none" id="agenda-container">
-        {% include "pages/agenda.html" %}
+        {% include "pages/agenda_content.html" %}
     </div>
 
     <!-- Seção de clientes (escondida inicialmente) -->
@@ -204,10 +204,13 @@
         // Configurando eventos de clique para navegação
         Object.entries(menuLinks).forEach(([page, link]) => {
             if (link) {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    showPage(page);
-                });
+                // Não adicionar evento para o link da agenda, permitindo navegação normal
+                if (page !== 'agenda') {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        showPage(page);
+                    });
+                }
             }
         });
         

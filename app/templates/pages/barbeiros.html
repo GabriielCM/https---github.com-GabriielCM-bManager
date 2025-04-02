@@ -1,0 +1,143 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Barbeiros | B-Manager{% endblock %}
+
+{% block sidebar %}
+    {% include "components/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div id="barbeiros">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Buscar barbeiro por nome ou especialidade..." id="barbeiro-busca">
+                <button class="btn btn-primary" type="button" id="barbeiro-busca-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            <button type="button" class="btn btn-success" id="barbeiro-novo-btn">
+                <i class="fas fa-plus me-2"></i>Novo Barbeiro
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold">Equipe de Barbeiros</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="barbeirosDropdownMenuLink"
+                            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                            aria-labelledby="barbeirosDropdownMenuLink">
+                            <div class="dropdown-header">Opções:</div>
+                            <a class="dropdown-item" href="#" id="barbeiros-exportar">Exportar</a>
+                            <a class="dropdown-item" href="#" id="barbeiros-imprimir">Imprimir</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#" id="barbeiros-escala">Escala de Trabalho</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="barbeiros-lista">
+                        <!-- Lista de barbeiros será carregada via AJAX -->
+                    </div>
+                    <div id="barbeiros-empty" class="text-center py-4 d-none">
+                        <i class="fas fa-user-tie fa-3x text-gray-300 mb-3"></i>
+                        <p>Nenhum barbeiro encontrado.</p>
+                        <button class="btn btn-primary" id="barbeiro-novo-btn-empty">
+                            <i class="fas fa-plus me-2"></i>Cadastrar Barbeiro
+                        </button>
+                    </div>
+                    <div id="barbeiros-loading" class="text-center py-4 d-none">
+                        <div class="loading-spinner"></div>
+                        <p>Carregando barbeiros...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Desempenho</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Barbeiro</th>
+                                    <th>Atendimentos</th>
+                                    <th>Avaliação</th>
+                                    <th>Faturamento</th>
+                                </tr>
+                            </thead>
+                            <tbody id="barbeiros-desempenho">
+                                <!-- Dados de desempenho serão carregados via AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Disponibilidade da Equipe</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <input type="date" class="form-control form-control-sm" id="disponibilidade-data" style="width: 200px;">
+                    </div>
+                    <div id="disponibilidade-timeline" class="mt-4">
+                        <!-- Timeline será gerada via JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Serviços por Barbeiro</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height:300px;">
+                        <canvas id="servicos-barbeiro-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Script para a página de barbeiros -->
+<script src="/static/js/barbeiros.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Página de barbeiros carregada com sucesso!');
+        
+        // Destacar o link de barbeiros no sidebar como ativo
+        const barbeirosLink = document.getElementById('barbeiros-link');
+        if (barbeirosLink) {
+            const sidebarLinks = document.querySelectorAll('.nav-link');
+            sidebarLinks.forEach(link => link.classList.remove('active'));
+            barbeirosLink.classList.add('active');
+        }
+    });
+</script>
+{% endblock %} 
