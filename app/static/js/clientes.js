@@ -2,129 +2,166 @@
  * Funções para gerenciamento de clientes
  */
 
-// Carregar lista de clientes com paginação
+// Variáveis globais
+let clientesTable;
+let currentPage = 1;
+let searchTerm = '';
+
+// Inicialização da página de clientes
+$(document).ready(function() {
+    // Inicializar componentes
+    initClientesPage();
+});
+
+// Inicializar página de clientes
+function initClientesPage() {
+    // Carregar lista de clientes
+    loadClientes();
+    
+    // Carregar estatísticas
+    loadClientesStats();
+    
+    // Carregar clientes recentes
+    loadRecentClientes();
+    
+    // Aplicar máscara ao campo de telefone
+    if ($.fn.mask) {
+        $('#cliente-telefone').mask('(00) 00000-0000');
+    } else {
+        // Caso a biblioteca não esteja carregada, carregá-la dinamicamente
+        $.getScript('/static/vendor/jquery-mask/jquery.mask.min.js', function() {
+            $('#cliente-telefone').mask('(00) 00000-0000');
+        });
+    }
+    
+    // Eventos de busca
+    $('#cliente-busca-btn').on('click', function() {
+        searchTerm = $('#cliente-busca').val();
+        loadClientes(1, searchTerm);
+    });
+    
+    $('#cliente-busca').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchTerm = $(this).val();
+            loadClientes(1, searchTerm);
+        }
+    });
+    
+    // Eventos para modais
+    $('#cliente-novo-btn').on('click', function() {
+        abrirModalCliente();
+    });
+    
+    $(document).on('click', '#cliente-novo-btn-empty', function() {
+        abrirModalCliente();
+    });
+    
+    // Salvar cliente
+    $('#salvar-cliente-btn').on('click', function() {
+        salvarCliente();
+    });
+    
+    // Exportar clientes
+    $('#clientes-exportar').on('click', function() {
+        exportClientes();
+    });
+    
+    // Imprimir clientes
+    $('#clientes-imprimir').on('click', function() {
+        printClientes();
+    });
+    
+    // Importar clientes
+    $('#clientes-importar').on('click', function() {
+        importClientes();
+    });
+}
+
+// Alias para compatibilidade com código HTML
+function inicializarPaginaClientes() {
+    initClientesPage();
+}
+
+// Carregar lista de clientes
 function loadClientes(page = 1, search = '') {
-    // Atualizar variáveis de estado
+    // Atualizar variáveis
     currentPage = page;
     
-    // Exibir loading
-    $('#clientes-list').html('<div class="text-center my-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>');
+    // Mostrar carregamento
+    $('#clientes-lista').html('');
+    $('#clientes-loading').removeClass('d-none');
+    $('#clientes-empty').addClass('d-none');
     
-    // Fazer requisição AJAX
+    // Adicionar timestamp para evitar cache
+    const timestamp = new Date().getTime();
+    
+    // Fazer requisição AJAX para a API
     $.ajax({
-        url: `/api/clientes?page=${page}&search=${search}`,
+        url: `/api/clientes/?pagina=${page}&busca=${search}&por_pagina=10&_=${timestamp}`,
         type: 'GET',
+        cache: false, // Desabilitar cache explicitamente
         success: function(response) {
-            if (response.clientes.length === 0 && search === '') {
-                // Exibir mensagem de lista vazia (sem pesquisa)
-                $('#clientes-list').html(`
-                    <div class="text-center my-5">
-                        <img src="/static/img/empty-list.svg" alt="Lista vazia" class="img-fluid mb-3" style="max-height: 150px;">
-                        <h5>Nenhum cliente cadastrado</h5>
-                        <p class="text-muted">Cadastre o primeiro cliente para começar</p>
-                        <button id="btn-novo-cliente-empty" class="btn btn-primary">
-                            <i class="fas fa-plus-circle me-2"></i> Novo Cliente
-                        </button>
-                    </div>
-                `);
-                
-                // Evento para o botão de novo cliente
-                $('#btn-novo-cliente-empty').on('click', function() {
-                    openModalCliente();
-                });
-            } else if (response.clientes.length === 0 && search !== '') {
-                // Exibir mensagem de pesquisa sem resultados
-                $('#clientes-list').html(`
-                    <div class="text-center my-5">
-                        <img src="/static/img/no-results.svg" alt="Sem resultados" class="img-fluid mb-3" style="max-height: 150px;">
-                        <h5>Nenhum cliente encontrado</h5>
-                        <p class="text-muted">Tente usar termos de pesquisa diferentes</p>
-                        <button id="btn-limpar-pesquisa" class="btn btn-outline-secondary">
-                            <i class="fas fa-times me-2"></i> Limpar Pesquisa
-                        </button>
-                    </div>
-                `);
-                
-                // Evento para limpar pesquisa
-                $('#btn-limpar-pesquisa').on('click', function() {
-                    $('#cliente-search').val('');
-                    loadClientes(1, '');
-                });
+            console.log('Clientes carregados:', response);
+            
+            // Esconder carregamento
+            $('#clientes-loading').addClass('d-none');
+            
+            if (!response.items || response.items.length === 0) {
+                // Mostrar mensagem vazia
+                $('#clientes-empty').removeClass('d-none');
             } else {
-                // Renderizar lista de clientes
-                let html = '<div class="table-responsive">';
-                html += `
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th scope="col">Nome</th>
-                                <th scope="col">Contato</th>
-                                <th scope="col">Atendimentos</th>
-                                <th scope="col">Última Visita</th>
-                                <th scope="col">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
+                // Renderizar lista
+                let html = '';
                 
-                response.clientes.forEach(cliente => {
-                    const ultimaVisita = cliente.ultima_visita ? new Date(cliente.ultima_visita).toLocaleDateString('pt-BR') : 'Nunca';
+                response.items.forEach(function(cliente) {
+                    // Definir status e classe
+                    let statusText = 'Novo';
+                    let statusClass = 'bg-info';
                     
-                    // Definir classe baseado na frequência de visitas
-                    let statusClass = '';
-                    let statusText = '';
-                    
-                    if (cliente.status === 'frequent') {
-                        statusClass = 'bg-success';
-                        statusText = 'Frequente';
-                    } else if (cliente.status === 'regular') {
-                        statusClass = 'bg-info';
-                        statusText = 'Regular';
-                    } else if (cliente.status === 'occasional') {
-                        statusClass = 'bg-warning text-dark';
-                        statusText = 'Ocasional';
-                    } else if (cliente.status === 'inactive') {
-                        statusClass = 'bg-danger';
-                        statusText = 'Inativo';
-                    } else {
-                        statusClass = 'bg-secondary';
-                        statusText = 'Novo';
+                    // Determinar status baseado em dados do cliente (a ser implementado)
+                    if (cliente.ultimo_atendimento) {
+                        const dataUltimoAtendimento = new Date(cliente.ultimo_atendimento);
+                        const hoje = new Date();
+                        const diffDias = Math.floor((hoje - dataUltimoAtendimento) / (1000 * 60 * 60 * 24));
+                        
+                        if (diffDias <= 30) {
+                            statusText = 'Frequente';
+                            statusClass = 'bg-success';
+                        } else if (diffDias <= 90) {
+                            statusText = 'Regular';
+                            statusClass = 'bg-primary';
+                        } else if (diffDias <= 180) {
+                            statusText = 'Ocasional';
+                            statusClass = 'bg-warning';
+                        } else {
+                            statusText = 'Inativo';
+                            statusClass = 'bg-danger';
+                        }
                     }
                     
+                    // Formatar data do último atendimento
+                    const ultimoAtendimento = cliente.ultimo_atendimento 
+                        ? new Date(cliente.ultimo_atendimento).toLocaleDateString('pt-BR') 
+                        : 'Nunca';
+                    
+                    // Construir linha da tabela
                     html += `
                         <tr>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="me-3">
-                                        <div class="avatar-sm rounded-circle bg-light d-flex align-items-center justify-content-center">
-                                            <span class="text-primary">${cliente.nome.charAt(0).toUpperCase()}</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h6 class="mb-0">${cliente.nome}</h6>
-                                        <span class="badge ${statusClass}">${statusText}</span>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <div><i class="fas fa-phone me-1 text-muted"></i> ${cliente.telefone || 'Não informado'}</div>
-                                <div><i class="fas fa-envelope me-1 text-muted"></i> ${cliente.email || 'Não informado'}</div>
-                            </td>
-                            <td>
-                                <h6 class="mb-0">${cliente.agendamentos_count || 0}</h6>
-                                <small class="text-muted">atendimentos</small>
-                            </td>
-                            <td>${ultimaVisita}</td>
-                            <td>
-                                <div class="btn-group" role="group">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="openModalCliente(${cliente.id})">
+                            <td>${cliente.nome}</td>
+                            <td>${cliente.telefone}</td>
+                            <td>${cliente.email || '-'}</td>
+                            <td>${ultimoAtendimento}</td>
+                            <td><span class="badge ${statusClass}">${statusText}</span></td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-primary editar-cliente" data-id="${cliente.id}">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="openModalAgendamento(null, ${cliente.id})">
-                                        <i class="fas fa-calendar-plus"></i>
+                                    <button type="button" class="btn btn-outline-info ver-cliente" data-id="${cliente.id}">
+                                        <i class="fas fa-eye"></i>
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-outline-info" onclick="verPerfilCliente(${cliente.id})">
-                                        <i class="fas fa-user"></i>
+                                    <button type="button" class="btn btn-outline-danger excluir-cliente" data-id="${cliente.id}">
+                                        <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             </td>
@@ -132,332 +169,464 @@ function loadClientes(page = 1, search = '') {
                     `;
                 });
                 
-                html += '</tbody></table></div>';
-                
-                // Adicionar paginação
-                html += '<div id="clientes-pagination" class="d-flex justify-content-center mt-4"></div>';
-                
-                $('#clientes-list').html(html);
+                // Adicionar à tabela
+                $('#clientes-lista').html(html);
                 
                 // Gerar paginação
-                generatePagination('#clientes-pagination', page, response.total_pages, (newPage) => {
-                    loadClientes(newPage, search);
+                generatePagination(page, response.paginas, response.total);
+                
+                // Adicionar eventos aos botões
+                $('.editar-cliente').on('click', function() {
+                    const id = $(this).data('id');
+                    abrirModalCliente(id);
+                });
+                
+                $('.ver-cliente').on('click', function() {
+                    const id = $(this).data('id');
+                    viewClienteProfile(id);
+                });
+                
+                $('.excluir-cliente').on('click', function() {
+                    const id = $(this).data('id');
+                    confirmDeleteCliente(id);
                 });
             }
         },
         error: function(xhr) {
-            $('#clientes-list').html(`
-                <div class="alert alert-danger" role="alert">
-                    Erro ao carregar clientes: ${xhr.responseJSON?.message || 'Erro desconhecido'}
-                </div>
+            // Esconder carregamento e mostrar erro
+            $('#clientes-loading').addClass('d-none');
+            
+            let mensagem = 'Erro ao carregar clientes';
+            
+            if (xhr.responseJSON && xhr.responseJSON.erro) {
+                mensagem += ': ' + xhr.responseJSON.erro;
+            }
+            
+            console.error('Erro ao carregar clientes:', xhr);
+            
+            $('#clientes-lista').html(`
+                <tr>
+                    <td colspan="6" class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>${mensagem}
+                    </td>
+                </tr>
             `);
         }
     });
-    
-    // Carregar estatísticas de clientes
-    loadClientesStats();
 }
 
-// Gerar paginação
-function generatePagination(selector, currentPage, totalPages, callback) {
+// Gerar links de paginação
+function generatePagination(currentPage, totalPages, totalItems) {
     if (totalPages <= 1) {
-        $(selector).html('');
+        $('#clientes-paginacao').html('');
         return;
     }
     
-    let html = '<nav aria-label="Paginação"><ul class="pagination">';
+    let html = '';
     
-    // Botão anterior
+    // Botão Anterior
     html += `
         <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-            <a class="page-link" href="#" aria-label="Anterior" data-page="${currentPage - 1}">
+            <a class="page-link" href="javascript:void(0)" data-page="${currentPage - 1}" aria-label="Anterior">
                 <span aria-hidden="true">&laquo;</span>
             </a>
         </li>
     `;
     
     // Páginas
-    const maxPages = 5; // Máximo de páginas para mostrar
-    let startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
-    let endPage = Math.min(totalPages, startPage + maxPages - 1);
-    
-    if (endPage - startPage + 1 < maxPages) {
-        startPage = Math.max(1, endPage - maxPages + 1);
-    }
-    
-    // Primeira página
-    if (startPage > 1) {
-        html += `<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>`;
-        if (startPage > 2) {
-            html += `<li class="page-item disabled"><a class="page-link" href="#">...</a></li>`;
+    for (let i = 1; i <= totalPages; i++) {
+        if (
+            i === 1 || 
+            i === totalPages || 
+            (i >= currentPage - 1 && i <= currentPage + 1)
+        ) {
+            html += `
+                <li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="javascript:void(0)" data-page="${i}">${i}</a>
+                </li>
+            `;
+        } else if (
+            i === currentPage - 2 || 
+            i === currentPage + 2
+        ) {
+            html += `
+                <li class="page-item disabled">
+                    <a class="page-link" href="javascript:void(0)">...</a>
+                </li>
+            `;
         }
     }
     
-    // Páginas do meio
-    for (let i = startPage; i <= endPage; i++) {
-        html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
-    }
-    
-    // Última página
-    if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
-            html += `<li class="page-item disabled"><a class="page-link" href="#">...</a></li>`;
-        }
-        html += `<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>`;
-    }
-    
-    // Botão próximo
+    // Botão Próximo
     html += `
         <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
-            <a class="page-link" href="#" aria-label="Próximo" data-page="${currentPage + 1}">
+            <a class="page-link" href="javascript:void(0)" data-page="${currentPage + 1}" aria-label="Próximo">
                 <span aria-hidden="true">&raquo;</span>
             </a>
         </li>
     `;
     
-    html += '</ul></nav>';
+    $('#clientes-paginacao').html(html);
     
-    $(selector).html(html);
-    
-    // Adicionar eventos
-    $(`${selector} .page-link`).on('click', function(e) {
+    // Adicionar evento de clique
+    $('#clientes-paginacao .page-link').on('click', function(e) {
         e.preventDefault();
         const page = $(this).data('page');
         if (page && !isNaN(page) && page !== currentPage) {
-            callback(page);
+            loadClientes(page, searchTerm);
         }
     });
 }
 
 // Carregar estatísticas de clientes
 function loadClientesStats() {
+    const timestamp = new Date().getTime();
+    
     $.ajax({
-        url: '/api/clientes/stats',
+        url: `/api/clientes/estatisticas?_=${timestamp}`,
         type: 'GET',
+        cache: false,
         success: function(response) {
-            // Atualizar contadores
-            $('#clientes-total-count').text(response.total || 0);
-            $('#clientes-novos-count').text(response.novos_mes || 0);
-            $('#clientes-retornos-count').text(response.retornos_mes || 0);
-            
-            // Criar gráfico de frequência
-            createClientesChart(response.frequencia);
+            console.log('Estatísticas carregadas:', response);
+            $('#estatistica-total-clientes').text(response.total || 0);
+            $('#estatistica-novos-clientes').text(response.novos_mes || 0);
+            $('#estatistica-clientes-frequentes').text(response.frequentes || 0);
+            $('#estatistica-clientes-inativos').text(response.inativos || 0);
         },
         error: function(xhr) {
-            console.error('Erro ao carregar estatísticas de clientes:', xhr.responseJSON?.message || 'Erro desconhecido');
+            console.error('Erro ao carregar estatísticas de clientes:', xhr);
         }
     });
 }
 
-// Criar gráfico de frequência de clientes
-function createClientesChart(dados) {
-    // Remover chart existente se houver
-    if (window.clientesChart) {
-        window.clientesChart.destroy();
-    }
+// Carregar clientes recentes
+function loadRecentClientes() {
+    const timestamp = new Date().getTime();
     
-    // Se não houver dados, não criar o gráfico
-    if (!dados) {
-        $('#clientes-chart-container').html(`
-            <div class="alert alert-info" role="alert">
-                Não há dados suficientes para exibir o gráfico de frequência de clientes.
-            </div>
-        `);
-        return;
-    }
-    
-    // Preparar dados para o gráfico
-    const labels = ['Frequentes', 'Regulares', 'Ocasionais', 'Inativos', 'Novos'];
-    const data = [
-        dados.frequent || 0,
-        dados.regular || 0,
-        dados.occasional || 0,
-        dados.inactive || 0,
-        dados.new || 0
-    ];
-    
-    // Criar novo chart
-    const ctx = document.getElementById('chart-clientes');
-    window.clientesChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: [
-                    'rgba(40, 167, 69, 0.7)',    // Verde - Frequentes
-                    'rgba(23, 162, 184, 0.7)',   // Ciano - Regulares
-                    'rgba(255, 193, 7, 0.7)',    // Amarelo - Ocasionais
-                    'rgba(220, 53, 69, 0.7)',    // Vermelho - Inativos
-                    'rgba(108, 117, 125, 0.7)'   // Cinza - Novos
-                ],
-                borderColor: [
-                    'rgba(40, 167, 69, 1)',
-                    'rgba(23, 162, 184, 1)',
-                    'rgba(255, 193, 7, 1)',
-                    'rgba(220, 53, 69, 1)',
-                    'rgba(108, 117, 125, 1)'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'right',
-                },
-                title: {
-                    display: true,
-                    text: 'Frequência de Clientes'
-                }
+    $.ajax({
+        url: `/api/clientes/recentes?_=${timestamp}`,
+        type: 'GET',
+        cache: false,
+        success: function(response) {
+            console.log('Clientes recentes carregados:', response);
+            
+            if (!response || response.length === 0) {
+                $('#clientes-recentes-lista').html(`
+                    <tr>
+                        <td colspan="3" class="text-center">Nenhum cliente recente</td>
+                    </tr>
+                `);
+                return;
             }
+            
+            let html = '';
+            
+            response.forEach(function(cliente) {
+                const dataCadastro = new Date(cliente.created_at).toLocaleDateString('pt-BR');
+                
+                html += `
+                    <tr>
+                        <td>${cliente.nome}</td>
+                        <td>${dataCadastro}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-info ver-cliente-recente" data-id="${cliente.id}">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            $('#clientes-recentes-lista').html(html);
+            
+            // Adicionar evento
+            $('.ver-cliente-recente').on('click', function() {
+                const id = $(this).data('id');
+                viewClienteProfile(id);
+            });
+        },
+        error: function(xhr) {
+            console.error('Erro ao carregar clientes recentes:', xhr);
+            $('#clientes-recentes-lista').html(`
+                <tr>
+                    <td colspan="3" class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>Erro ao carregar clientes recentes
+                    </td>
+                </tr>
+            `);
         }
     });
-    
-    // Exibir o gráfico
-    $('#clientes-chart-container').html(`
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Frequência de Clientes</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="chart-clientes"></canvas>
-            </div>
-        </div>
-    `);
 }
 
 // Abrir modal para adicionar/editar cliente
-function openModalCliente(id = null) {
-    // Limpar formulário
-    $('#form-cliente')[0].reset();
-    $('#form-cliente .alert').addClass('d-none');
-    $('#form-cliente .is-invalid').removeClass('is-invalid');
+function abrirModalCliente(id = null) {
+    // Resetar formulário
+    $('#cliente-form')[0].reset();
+    $('#cliente-form .is-invalid').removeClass('is-invalid');
+    $('#cliente-id').val('');
     
-    // Definir título do modal
-    $('#modalClienteTitle').text(id ? 'Editar Cliente' : 'Novo Cliente');
+    // Aplicar máscara ao campo de telefone
+    if ($.fn.mask) {
+        $('#cliente-telefone').mask('(00) 00000-0000');
+    } else {
+        console.error('Plugin jQuery Mask não encontrado. Verifique se o arquivo está sendo carregado corretamente.');
+    }
     
-    // Se for edição, carregar dados do cliente
     if (id) {
-        // Mostrar loading
-        $('#modal-cliente-loading').removeClass('d-none');
-        $('#form-cliente-content').addClass('d-none');
+        // Editar cliente existente
+        $('#clienteModalLabel').text('Editar Cliente');
         
-        // Fazer requisição AJAX
+        // Carregar dados do cliente
         $.ajax({
             url: `/api/clientes/${id}`,
             type: 'GET',
-            success: function(response) {
-                // Preencher formulário
-                $('#cliente-id').val(response.cliente.id);
-                $('#cliente-nome').val(response.cliente.nome);
-                $('#cliente-email').val(response.cliente.email);
-                $('#cliente-telefone').val(response.cliente.telefone);
-                $('#cliente-data-nascimento').val(response.cliente.data_nascimento);
-                $('#cliente-observacoes').val(response.cliente.observacoes);
+            beforeSend: function() {
+                // Mostrar indicador de carregamento
+                $('#salvar-cliente-btn').prop('disabled', true);
+            },
+            success: function(cliente) {
+                $('#cliente-id').val(cliente.id);
+                $('#cliente-nome').val(cliente.nome);
                 
-                // Exibir formulário
-                $('#modal-cliente-loading').addClass('d-none');
-                $('#form-cliente-content').removeClass('d-none');
+                // Formatar telefone para exibição (caso ainda não esteja formatado)
+                let telefone = cliente.telefone;
+                if (telefone && telefone.replace(/\D/g, '').length === 11) {
+                    // Se telefone tem 11 dígitos, pode aplicar formatação
+                    $('#cliente-telefone').val(telefone);
+                } else {
+                    $('#cliente-telefone').val(telefone);
+                }
+                
+                $('#cliente-email').val(cliente.email || '');
+                
+                // Reaplicar máscara após preencher dados
+                if ($.fn.mask) {
+                    $('#cliente-telefone').mask('(00) 00000-0000');
+                }
+                
+                // Mostrar modal
+                $('#clienteModal').modal('show');
             },
             error: function(xhr) {
-                // Mostrar erro
-                $('#modal-cliente-loading').addClass('d-none');
-                $('#form-cliente-content').removeClass('d-none');
-                $('#form-cliente .alert-danger').text(`Erro ao carregar cliente: ${xhr.responseJSON?.message || 'Erro desconhecido'}`).removeClass('d-none');
+                let mensagem = 'Erro ao carregar dados do cliente';
+                
+                if (xhr.responseJSON && xhr.responseJSON.erro) {
+                    mensagem += ': ' + xhr.responseJSON.erro;
+                }
+                
+                console.error('Erro ao carregar cliente:', xhr);
+                alert(mensagem);
+            },
+            complete: function() {
+                $('#salvar-cliente-btn').prop('disabled', false);
             }
         });
+    } else {
+        // Novo cliente
+        $('#clienteModalLabel').text('Novo Cliente');
+        $('#clienteModal').modal('show');
     }
-    
-    // Abrir modal
-    const modal = new bootstrap.Modal(document.getElementById('modalCliente'));
-    modal.show();
 }
 
-// Salvar cliente
+// Salvar cliente (criar/atualizar)
 function salvarCliente() {
     // Validar formulário
-    if (!validarFormulario('#form-cliente')) {
+    const form = document.getElementById('cliente-form');
+    
+    if (!form.checkValidity()) {
+        // Marcar campos inválidos
+        Array.from(form.elements).forEach(input => {
+            if (input.checkValidity()) {
+                input.classList.remove('is-invalid');
+            } else {
+                input.classList.add('is-invalid');
+            }
+        });
         return;
     }
     
-    // Desabilitar botão de salvar
-    $('#btn-salvar-cliente').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...');
+    // Limpar estados de erro anteriores
+    $('#cliente-form .is-invalid').removeClass('is-invalid');
     
-    // Pegar ID (se for edição)
+    // Obter dados do formulário
     const id = $('#cliente-id').val();
+    const nome = $('#cliente-nome').val();
+    const telefone = $('#cliente-telefone').val().replace(/\D/g, ''); // Remove todos os não dígitos
+    const email = $('#cliente-email').val();
     
     // Preparar dados
-    const dados = {
-        nome: $('#cliente-nome').val(),
-        email: $('#cliente-email').val(),
-        telefone: $('#cliente-telefone').val(),
-        data_nascimento: $('#cliente-data-nascimento').val(),
-        observacoes: $('#cliente-observacoes').val()
+    const data = {
+        nome: nome,
+        telefone: telefone,
+        email: email.trim() === '' ? null : email
     };
     
-    // Definir método e URL
-    const metodo = id ? 'PUT' : 'POST';
-    const url = id ? `/api/clientes/${id}` : '/api/clientes';
+    // Log para debug
+    console.log('Enviando dados:', data);
     
-    // Fazer requisição AJAX
+    // Determinar URL e método
+    const url = id ? `/api/clientes/${id}` : '/api/clientes';
+    const method = id ? 'PUT' : 'POST';
+    
+    // Desabilitar botão enquanto salva
+    $('#salvar-cliente-btn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Salvando...');
+    
+    // Função para limpar o formulário e recarregar os dados
+    function limparFormularioERecarregar() {
+        // Limpar formulário
+        form.reset();
+        $('#cliente-id').val('');
+        
+        // Recarregar dados com atraso para garantir que a API tenha processado as alterações
+        setTimeout(function() {
+            loadClientes(1, searchTerm); // Sempre voltar para a primeira página para ver o novo cliente
+            loadClientesStats();
+            loadRecentClientes();
+        }, 300);
+        
+        // Feedback positivo
+        showToast('Sucesso', id ? 'Cliente atualizado com sucesso!' : 'Cliente cadastrado com sucesso!', 'success');
+    }
+    
+    // Enviar requisição
     $.ajax({
         url: url,
-        type: metodo,
-        data: JSON.stringify(dados),
+        type: method,
         contentType: 'application/json',
+        data: JSON.stringify(data),
         success: function(response) {
+            console.log('Cliente salvo com sucesso:', response);
+            
             // Fechar modal
-            bootstrap.Modal.getInstance(document.getElementById('modalCliente')).hide();
-            
-            // Exibir mensagem de sucesso
-            showAlert('success', response.message || 'Cliente salvo com sucesso!');
-            
-            // Recarregar lista de clientes
-            loadClientes(currentPage, $('#cliente-search').val());
+            const modalEl = document.getElementById('clienteModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) {
+                modal.hide();
+                limparFormularioERecarregar();
+            } else {
+                // Caso não consiga obter a instância do modal via bootstrap
+                $('#clienteModal').modal('hide');
+                limparFormularioERecarregar();
+            }
         },
         error: function(xhr) {
-            // Mostrar erro
-            $('#form-cliente .alert-danger').text(xhr.responseJSON?.message || 'Erro ao salvar cliente').removeClass('d-none');
+            console.error('Erro ao salvar cliente:', xhr);
             
-            // Habilitar botão de salvar
-            $('#btn-salvar-cliente').prop('disabled', false).text('Salvar');
+            let mensagem = 'Erro ao salvar cliente';
+            
+            if (xhr.responseJSON && xhr.responseJSON.erro) {
+                mensagem = xhr.responseJSON.erro;
+                
+                // Marcar campos com erro
+                if (xhr.responseJSON.detalhes) {
+                    Object.keys(xhr.responseJSON.detalhes).forEach(campo => {
+                        const elementoId = `cliente-${campo}`;
+                        console.log(`Marcando campo como inválido: ${elementoId}`);
+                        
+                        const elemento = $(`#${elementoId}`);
+                        if (elemento.length) {
+                            elemento.addClass('is-invalid');
+                            
+                            // Atualizar mensagem de erro específica
+                            const feedbackEl = elemento.siblings('.invalid-feedback');
+                            if (feedbackEl.length) {
+                                feedbackEl.text(xhr.responseJSON.detalhes[campo]);
+                            }
+                        }
+                    });
+                }
+            }
+            
+            // Mostrar notificação de erro
+            showToast('Erro', mensagem, 'danger');
         },
         complete: function() {
-            // Habilitar botão de salvar
-            $('#btn-salvar-cliente').prop('disabled', false).text('Salvar');
+            // Restaurar estado do botão
+            $('#salvar-cliente-btn').prop('disabled', false).text('Salvar');
         }
     });
 }
 
-// Ver perfil do cliente (a ser implementado)
-function verPerfilCliente(id) {
-    alert('Funcionalidade em desenvolvimento: Ver perfil do cliente ' + id);
+// Confirmar exclusão de cliente
+function confirmDeleteCliente(id) {
+    if (confirm('Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.')) {
+        deleteCliente(id);
+    }
 }
 
-// Eventos
-$(document).ready(function() {
-    // Evento para salvar cliente
-    $('#btn-salvar-cliente').on('click', function() {
-        salvarCliente();
-    });
-    
-    // Evento para pesquisar clientes
-    $('#btn-pesquisar-cliente').on('click', function() {
-        const search = $('#cliente-search').val();
-        loadClientes(1, search);
-    });
-    
-    // Evento para pesquisar com Enter
-    $('#cliente-search').on('keypress', function(e) {
-        if (e.which === 13) {
-            e.preventDefault();
-            const search = $(this).val();
-            loadClientes(1, search);
+// Excluir cliente
+function deleteCliente(id) {
+    $.ajax({
+        url: `/api/clientes/${id}`,
+        type: 'DELETE',
+        success: function(response) {
+            showToast('Sucesso', 'Cliente excluído com sucesso!', 'success');
+            
+            // Recarregar dados
+            loadClientes(currentPage, searchTerm);
+            loadClientesStats();
+            loadRecentClientes();
+        },
+        error: function(xhr) {
+            let mensagem = 'Erro ao excluir cliente';
+            
+            if (xhr.responseJSON && xhr.responseJSON.erro) {
+                mensagem = xhr.responseJSON.erro;
+            }
+            
+            showToast('Erro', mensagem, 'danger');
         }
     });
-    
-    // Máscara para telefone
-    $('#cliente-telefone').mask('(00) 00000-0000');
-}); 
+}
+
+// Ver perfil do cliente
+function viewClienteProfile(id) {
+    // Implementar visualização de perfil (próxima fase)
+    alert('Visualização detalhada do perfil do cliente será implementada em breve!');
+}
+
+// Exportar clientes
+function exportClientes() {
+    // Implementar exportação
+    alert('Funcionalidade de exportação será implementada em breve!');
+}
+
+// Imprimir clientes
+function printClientes() {
+    // Implementar impressão
+    window.print();
+}
+
+// Importar clientes
+function importClientes() {
+    // Implementar importação
+    alert('Funcionalidade de importação será implementada em breve!');
+}
+
+// Exibir toast de notificação
+function showToast(titulo, mensagem, tipo = 'info') {
+    // Verificar se está implementado em uma função global
+    if (typeof window.showToast === 'function') {
+        window.showToast(titulo, mensagem, tipo);
+    } else {
+        // Criar elemento de alerta
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${tipo} alert-dismissible fade show`;
+        alert.role = 'alert';
+        alert.innerHTML = `
+            <strong>${titulo}:</strong> ${mensagem}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+        `;
+        
+        // Adicionar ao topo da página
+        const container = document.querySelector('#clientes');
+        container.insertBefore(alert, container.firstChild);
+        
+        // Remover automaticamente após alguns segundos
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.parentNode.removeChild(alert);
+            }
+        }, 5000);
+    }
+} 
