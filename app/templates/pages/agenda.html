@@ -1,0 +1,126 @@
+<!-- Agenda -->
+<div id="agenda">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Buscar agendamento por cliente ou serviço..." id="agenda-busca">
+                <button class="btn btn-primary" type="button" id="agenda-busca-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            <button type="button" class="btn btn-success" id="agenda-novo-btn">
+                <i class="fas fa-plus me-2"></i>Novo Agendamento
+            </button>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between">
+                    <h6 class="m-0 font-weight-bold">Agendamentos do Dia</h6>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="anterior-btn">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="hoje-btn">
+                            Hoje
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="proximo-btn">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Horário</th>
+                                    <th>Cliente</th>
+                                    <th>Serviço</th>
+                                    <th>Barbeiro</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agenda-lista">
+                                <!-- Será preenchido via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="agenda-empty" class="text-center py-4 d-none">
+                        <i class="fas fa-calendar-check fa-3x text-gray-300 mb-3"></i>
+                        <p>Nenhum agendamento encontrado para esta data.</p>
+                        <button class="btn btn-primary" id="agenda-novo-btn-empty">
+                            <i class="fas fa-plus me-2"></i>Agendar Atendimento
+                        </button>
+                    </div>
+                    <div id="agenda-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-2">Carregando agendamentos...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Calendário</h6>
+                </div>
+                <div class="card-body">
+                    <!-- Mini calendário será implementado aqui -->
+                    <div id="mini-calendario" class="calendar-container">
+                        <div class="calendar-header d-flex justify-content-between mb-3">
+                            <div id="calendar-month-year">Abril 2025</div>
+                            <div class="calendar-nav">
+                                <button class="btn btn-sm btn-link" id="calendar-prev">
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <button class="btn btn-sm btn-link" id="calendar-today">
+                                    Hoje
+                                </button>
+                                <button class="btn btn-sm btn-link" id="calendar-next">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="calendar-weekdays mb-2">
+                            <div class="calendar-grid">
+                                <div class="text-center">Dom</div>
+                                <div class="text-center">Seg</div>
+                                <div class="text-center">Ter</div>
+                                <div class="text-center">Qua</div>
+                                <div class="text-center">Qui</div>
+                                <div class="text-center">Sex</div>
+                                <div class="text-center">Sáb</div>
+                            </div>
+                        </div>
+                        <div id="calendar-days" class="calendar-grid">
+                            <!-- Dias do calendário serão gerados via JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Próximos Agendamentos</h6>
+                </div>
+                <div class="card-body">
+                    <div id="proximos-agenda">
+                        <!-- Lista de próximos agendamentos será gerada via JavaScript -->
+                    </div>
+                    <div id="proximos-agenda-empty" class="text-center py-4 d-none">
+                        <p>Não há agendamentos futuros.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

@@ -1,0 +1,250 @@
+{% extends "base/layout.html" %}
+
+{% block title %}B-Manager - Sistema de Gerenciamento para Barbearias{% endblock %}
+
+{% block sidebar %}
+    {% include "components/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+    <!-- Login form (mostrado inicialmente) -->
+    {% include "components/login.html" %}
+
+    <!-- Dashboard (escondido inicialmente) -->
+    <div class="d-none" id="dashboard-container">
+        {% include "pages/dashboard.html" %}
+    </div>
+
+    <!-- Seção de agenda (escondida inicialmente) -->
+    <div class="d-none" id="agenda-container">
+        {% include "pages/agenda.html" %}
+    </div>
+
+    <!-- Seção de clientes (escondida inicialmente) -->
+    <div class="d-none" id="clientes-container">
+        {% include "pages/clientes.html" %}
+    </div>
+
+    <!-- Seção de serviços (escondida inicialmente) -->
+    <div class="d-none" id="servicos-container">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold">Gerenciamento de Serviços</h6>
+            </div>
+            <div class="card-body">
+                <!-- Conteúdo da página de serviços será adicionado aqui -->
+                <div class="text-center py-4">
+                    <i class="fas fa-cut fa-3x text-gray-300 mb-3"></i>
+                    <p>Página de serviços em construção.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de produtos (escondida inicialmente) -->
+    <div class="d-none" id="produtos-container">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold">Gerenciamento de Produtos</h6>
+            </div>
+            <div class="card-body">
+                <!-- Conteúdo da página de produtos será adicionado aqui -->
+                <div class="text-center py-4">
+                    <i class="fas fa-box fa-3x text-gray-300 mb-3"></i>
+                    <p>Página de produtos em construção.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de vendas (escondida inicialmente) -->
+    <div class="d-none" id="vendas-container">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold">Gerenciamento de Vendas</h6>
+            </div>
+            <div class="card-body">
+                <!-- Conteúdo da página de vendas será adicionado aqui -->
+                <div class="text-center py-4">
+                    <i class="fas fa-cash-register fa-3x text-gray-300 mb-3"></i>
+                    <p>Página de vendas em construção.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de barbeiros (escondida inicialmente) -->
+    <div class="d-none" id="barbeiros-container">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold">Gerenciamento de Barbeiros</h6>
+            </div>
+            <div class="card-body">
+                <!-- Conteúdo da página de barbeiros será adicionado aqui -->
+                <div class="text-center py-4">
+                    <i class="fas fa-user-tie fa-3x text-gray-300 mb-3"></i>
+                    <p>Página de barbeiros em construção.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de relatórios (escondida inicialmente) -->
+    <div class="d-none" id="relatorios-container">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold">Relatórios</h6>
+            </div>
+            <div class="card-body">
+                <!-- Conteúdo da página de relatórios será adicionado aqui -->
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-bar fa-3x text-gray-300 mb-3"></i>
+                    <p>Página de relatórios em construção.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção de configurações (escondida inicialmente) -->
+    <div class="d-none" id="config-container">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold">Configurações do Sistema</h6>
+            </div>
+            <div class="card-body">
+                <!-- Conteúdo da página de configurações será adicionado aqui -->
+                <div class="text-center py-4">
+                    <i class="fas fa-cog fa-3x text-gray-300 mb-3"></i>
+                    <p>Página de configurações em construção.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Script para gerenciar a autenticação e navegação entre páginas
+        const form = document.getElementById('form-login');
+        const loginError = document.getElementById('login-error');
+        const dashboard = document.getElementById('dashboard-container');
+        const loginForm = document.getElementById('login-form');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userNameElement = document.getElementById('username');
+        const userNameSidebar = document.getElementById('user-name-sidebar');
+        
+        // Gerenciamento de menu
+        const menuLinks = {
+            'dashboard': document.querySelector('.nav-link.active'),
+            'agenda': document.getElementById('agenda-link'),
+            'clientes': document.getElementById('clientes-link'),
+            'servicos': document.getElementById('servicos-link'),
+            'produtos': document.getElementById('produtos-link'),
+            'vendas': document.getElementById('vendas-link'),
+            'barbeiros': document.getElementById('barbeiros-link'),
+            'relatorios': document.getElementById('relatorios-link'),
+            'config': document.getElementById('config-link')
+        };
+        
+        // Gerenciamento de conteúdo
+        const containers = {
+            'dashboard': document.getElementById('dashboard-container'),
+            'agenda': document.getElementById('agenda-container'),
+            'clientes': document.getElementById('clientes-container'),
+            'servicos': document.getElementById('servicos-container'),
+            'produtos': document.getElementById('produtos-container'),
+            'vendas': document.getElementById('vendas-container'),
+            'barbeiros': document.getElementById('barbeiros-container'),
+            'relatorios': document.getElementById('relatorios-container'),
+            'config': document.getElementById('config-container')
+        };
+        
+        const pageTitle = document.getElementById('page-title');
+        
+        // Função para mostrar uma página específica
+        function showPage(page) {
+            // Esconde todos os containers
+            Object.values(containers).forEach(container => {
+                if (container) container.classList.add('d-none');
+            });
+            
+            // Mostra o container específico
+            if (containers[page]) {
+                containers[page].classList.remove('d-none');
+            }
+            
+            // Atualiza o título da página
+            const titles = {
+                'dashboard': 'Dashboard',
+                'agenda': 'Agenda',
+                'clientes': 'Gerenciamento de Clientes',
+                'servicos': 'Serviços',
+                'produtos': 'Produtos',
+                'vendas': 'Vendas',
+                'barbeiros': 'Barbeiros',
+                'relatorios': 'Relatórios',
+                'config': 'Configurações'
+            };
+            
+            pageTitle.textContent = titles[page] || page.charAt(0).toUpperCase() + page.slice(1);
+            
+            // Atualiza a navegação ativa
+            Object.entries(menuLinks).forEach(([key, link]) => {
+                if (link) {
+                    if (key === page) {
+                        link.classList.add('active');
+                    } else {
+                        link.classList.remove('active');
+                    }
+                }
+            });
+        }
+        
+        // Configurando eventos de clique para navegação
+        Object.entries(menuLinks).forEach(([page, link]) => {
+            if (link) {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showPage(page);
+                });
+            }
+        });
+        
+        // Lógica de autenticação simulada
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            // Lógica de autenticação simplificada (apenas para demonstração)
+            if (email && password) {
+                // Em um cenário real, aqui faria uma requisição para a API
+                // Simulando login bem-sucedido
+                loginForm.classList.add('d-none');
+                dashboard.classList.remove('d-none');
+                
+                // Atualiza informações do usuário
+                const userName = email.split('@')[0];
+                userNameElement.textContent = userName;
+                userNameSidebar.textContent = userName;
+                
+                // Navega para a dashboard
+                showPage('dashboard');
+            } else {
+                loginError.textContent = 'Por favor, preencha todos os campos.';
+                loginError.classList.remove('d-none');
+            }
+        });
+        
+        // Lógica de logout
+        logoutBtn.addEventListener('click', function() {
+            // Em um cenário real, aqui faria uma requisição para a API de logout
+            // Mostra o formulário de login novamente
+            dashboard.classList.add('d-none');
+            loginForm.classList.remove('d-none');
+        });
+    });
+</script>
+{% endblock %} 

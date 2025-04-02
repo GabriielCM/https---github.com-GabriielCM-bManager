@@ -1,0 +1,102 @@
+<!-- Sidebar -->
+<nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar">
+    <div class="position-sticky pt-3">
+        <div class="text-center mb-4">
+            <div class="sidebar-brand-icon">
+                <i class="fas fa-cut fa-2x text-primary mb-2"></i>
+            </div>
+            <div class="sidebar-brand-text">
+                <h2 class="text-white">B-Manager</h2>
+                <span class="text-muted small">Gestão para Barbearias</span>
+            </div>
+        </div>
+        <div class="px-3 mb-4">
+            <div class="position-relative">
+                <input type="text" class="form-control bg-dark border-0 text-white" placeholder="Buscar..." id="sidebar-search">
+                <i class="fas fa-search position-absolute top-50 end-0 translate-middle-y me-3 text-white-50"></i>
+            </div>
+        </div>
+        <div class="px-3 py-2 mb-2 text-uppercase text-white-50 small fw-bold">
+            Principal
+        </div>
+        <ul class="nav flex-column mb-4">
+            <li class="nav-item">
+                <a class="nav-link active" href="#">
+                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="agenda-link">
+                    <i class="fas fa-calendar-alt me-2"></i>Agenda
+                    <span class="badge rounded-pill bg-primary ms-auto" id="agenda-notif-count">0</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="clientes-link">
+                    <i class="fas fa-users me-2"></i>Clientes
+                </a>
+            </li>
+        </ul>
+
+        <div class="px-3 py-2 mb-2 text-uppercase text-white-50 small fw-bold">
+            Gerenciamento
+        </div>
+        <ul class="nav flex-column mb-4">
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="servicos-link">
+                    <i class="fas fa-cut me-2"></i>Serviços
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="produtos-link">
+                    <i class="fas fa-box me-2"></i>Produtos
+                    <span class="badge rounded-pill bg-warning ms-auto" id="produtos-notif-count">0</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="vendas-link">
+                    <i class="fas fa-cash-register me-2"></i>Vendas
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="barbeiros-link">
+                    <i class="fas fa-user-tie me-2"></i>Barbeiros
+                </a>
+            </li>
+        </ul>
+
+        <div class="px-3 py-2 mb-2 text-uppercase text-white-50 small fw-bold">
+            Análises
+        </div>
+        <ul class="nav flex-column mb-4">
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="relatorios-link">
+                    <i class="fas fa-chart-bar me-2"></i>Relatórios
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="config-link">
+                    <i class="fas fa-cog me-2"></i>Configurações
+                </a>
+            </li>
+        </ul>
+        
+        <hr class="text-white-50 my-3">
+        <div class="px-3">
+            <div class="user-info d-flex align-items-center mb-3">
+                <div class="avatar bg-primary text-white rounded-circle p-2 me-2">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-details">
+                    <div class="small text-white" id="user-name-sidebar">Administrador</div>
+                    <div class="small text-white-50">Admin</div>
+                </div>
+            </div>
+            <div class="d-grid">
+                <button id="logout-btn" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-sign-out-alt me-2"></i>Sair
+                </button>
+            </div>
+        </div>
+    </div>
+</nav> 

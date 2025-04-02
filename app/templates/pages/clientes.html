@@ -1,0 +1,135 @@
+<!-- Clientes -->
+<div id="clientes">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Buscar cliente por nome, telefone ou email..." id="cliente-busca">
+                <button class="btn btn-primary" type="button" id="cliente-busca-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-4 text-end">
+            <button type="button" class="btn btn-success" id="cliente-novo-btn">
+                <i class="fas fa-plus me-2"></i>Novo Cliente
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold">Lista de Clientes</h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="clientesDropdownMenuLink"
+                            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                            aria-labelledby="clientesDropdownMenuLink">
+                            <div class="dropdown-header">Opções:</div>
+                            <a class="dropdown-item" href="#" id="clientes-exportar">Exportar</a>
+                            <a class="dropdown-item" href="#" id="clientes-imprimir">Imprimir</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#" id="clientes-importar">Importar Clientes</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="responsive-table">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Telefone</th>
+                                    <th>Email</th>
+                                    <th>Último Atendimento</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientes-lista">
+                                <!-- Lista de clientes será carregada via AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="clientes-empty" class="text-center py-4 d-none">
+                        <i class="fas fa-users fa-3x text-gray-300 mb-3"></i>
+                        <p>Nenhum cliente encontrado.</p>
+                        <button class="btn btn-primary" id="cliente-novo-btn-empty">
+                            <i class="fas fa-plus me-2"></i>Cadastrar Cliente
+                        </button>
+                    </div>
+                    <div id="clientes-loading" class="text-center py-4 d-none">
+                        <div class="loading-spinner"></div>
+                        <p>Carregando clientes...</p>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <nav aria-label="Paginação de clientes">
+                        <ul class="pagination justify-content-center mb-0" id="clientes-paginacao">
+                            <!-- Paginação será gerada via JavaScript -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Clientes Recentes</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Data de Cadastro</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientes-recentes-lista">
+                                <!-- Lista de clientes recentes será carregada via AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold">Estatísticas de Clientes</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="small text-gray-500">Total de Clientes</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="estatistica-total-clientes">0</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="small text-gray-500">Novos este mês</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="estatistica-novos-clientes">0</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="small text-gray-500">Clientes Frequentes</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="estatistica-clientes-frequentes">0</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="small text-gray-500">Clientes Inativos</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="estatistica-clientes-inativos">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

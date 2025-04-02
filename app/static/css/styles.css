@@ -1,0 +1,846 @@
+/* 
+ * B-Manager - Sistema de Gerenciamento para Barbearias
+ * Estilos principais
+ */
+
+:root {
+    --primary: #4e73df;
+    --secondary: #6c757d;
+    --success: #1cc88a;
+    --info: #36b9cc;
+    --warning: #f6c23e;
+    --danger: #e74a3b;
+    --light: #f8f9fc;
+    --dark: #5a5c69;
+    --white: #fff;
+    --gray: #858796;
+    --gray-dark: #343a40;
+    --gray-light: #f8f9fa;
+    --body-bg: #f8f9fc;
+    --card-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
+    --transition: all 0.3s ease;
+    --border-radius: 0.5rem;
+    --sidebar-width: 250px;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--body-bg);
+    overflow-x: hidden;
+}
+
+/* Sidebar */
+#sidebar {
+    height: 100vh;
+    position: fixed;
+    z-index: 100;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+#sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.7);
+    padding: 0.75rem 1rem;
+    font-weight: 500;
+    border-radius: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+#sidebar .nav-link:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+#sidebar .nav-link.active {
+    color: #fff;
+    background-color: var(--primary);
+}
+
+.icon-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+}
+
+/* Cartões */
+.card {
+    border: none;
+    border-radius: 0.35rem;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+}
+
+.card .card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #ededed;
+}
+
+.card-header h6 {
+    font-weight: 700;
+    color: var(--dark);
+}
+
+.card.border-left-primary {
+    border-left: 0.25rem solid var(--primary) !important;
+}
+
+.card.border-left-success {
+    border-left: 0.25rem solid var(--success) !important;
+}
+
+.card.border-left-info {
+    border-left: 0.25rem solid var(--info) !important;
+}
+
+.card.border-left-warning {
+    border-left: 0.25rem solid var(--warning) !important;
+}
+
+.card.border-left-danger {
+    border-left: 0.25rem solid var(--danger) !important;
+}
+
+/* Formulários */
+.form-control:focus {
+    border-color: #bac8f3;
+    box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.25);
+}
+
+/* Loading */
+.loading-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 0.25rem solid rgba(78, 115, 223, 0.2);
+    border-radius: 50%;
+    border-top-color: var(--primary);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Timeline */
+.timeline-item {
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.timeline-item:not(:last-child):before {
+    content: '';
+    position: absolute;
+    left: 1.25rem;
+    top: 2.5rem;
+    bottom: 0;
+    width: 1px;
+    background-color: #e3e6f0;
+}
+
+/* Tabelas */
+.table th {
+    font-weight: 600;
+    color: var(--dark);
+    border-top: none;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(78, 115, 223, 0.05);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #sidebar {
+        width: 100%;
+        position: relative;
+        height: auto;
+        margin-bottom: 1rem;
+    }
+    
+    main {
+        margin-left: 0 !important;
+    }
+}
+
+/* Estilos gerais */
+.btn {
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+    font-weight: 500;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(67, 97, 238, 0.15);
+}
+
+.btn-success {
+    background-color: var(--success);
+    border-color: var(--success);
+}
+
+.btn-success:hover, .btn-success:focus {
+    background-color: #43a047;
+    border-color: #43a047;
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(76, 175, 80, 0.15);
+}
+
+/* Main content */
+main {
+    margin-left: var(--sidebar-width);
+    padding: 1.5rem 2rem;
+    transition: var(--transition);
+}
+
+@media (max-width: 768px) {
+    main {
+        margin-left: 0;
+        padding: 1rem;
+    }
+    
+    #sidebar {
+        position: fixed;
+        min-height: 100vh;
+        width: var(--sidebar-width);
+        transform: translateX(-100%);
+    }
+    
+    #sidebar.show {
+        transform: translateX(0);
+    }
+    
+    .sidebar-toggle {
+        display: block;
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 101;
+        background-color: var(--primary);
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 40px;
+        box-shadow: var(--card-shadow);
+    }
+}
+
+/* Cards estilizados */
+.card:hover {
+    box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.12);
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Estilos modernos para cards do dashboard */
+.card .card-body {
+    padding: 1.25rem;
+}
+
+.card .text-xs {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.card .fa-2x {
+    font-size: 1.75rem;
+}
+
+/* Estilos das tabelas */
+.table {
+    margin-bottom: 0;
+}
+
+.table td {
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Ícones de ações na tabela */
+.action-icon {
+    cursor: pointer;
+    margin: 0 5px;
+    font-size: 1rem;
+    padding: 0.4rem;
+    border-radius: 50%;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+
+.action-icon.edit {
+    color: var(--primary);
+    background-color: rgba(67, 97, 238, 0.1);
+}
+
+.action-icon.delete {
+    color: var(--danger);
+    background-color: rgba(230, 57, 70, 0.1);
+}
+
+.action-icon.view {
+    color: var(--success);
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+.action-icon:hover {
+    transform: translateY(-3px);
+}
+
+.action-icon.edit:hover {
+    background-color: rgba(67, 97, 238, 0.2);
+}
+
+.action-icon.delete:hover {
+    background-color: rgba(230, 57, 70, 0.2);
+}
+
+.action-icon.view:hover {
+    background-color: rgba(76, 175, 80, 0.2);
+}
+
+/* Status de agendamentos */
+.status-badge {
+    padding: 0.35em 0.65em;
+    border-radius: var(--border-radius);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+.status-pendente {
+    background-color: var(--warning);
+    color: #fff;
+}
+
+.status-confirmado {
+    background-color: var(--success);
+    color: #fff;
+}
+
+.status-concluido {
+    background-color: var(--primary);
+    color: #fff;
+}
+
+.status-cancelado {
+    background-color: var(--danger);
+    color: #fff;
+}
+
+/* Login form */
+#login-form {
+    margin-top: 5rem;
+    border-radius: var(--border-radius);
+    box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+
+#login-form .card-header {
+    background-color: var(--primary);
+    color: white;
+    padding: 1.5rem;
+    font-weight: 600;
+}
+
+#login-form .form-control {
+    padding: 0.75rem 1rem;
+    border-radius: var(--border-radius);
+}
+
+#login-form .btn-primary {
+    padding: 0.75rem;
+}
+
+/* Animações para transições entre telas */
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Botão flutuante para ações principais */
+.floating-action-btn {
+    position: fixed;
+    right: 30px;
+    bottom: 30px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    transition: var(--transition);
+}
+
+.floating-action-btn:hover {
+    transform: scale(1.1) translateY(-5px);
+    background-color: var(--primary-dark);
+    box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.3);
+}
+
+.floating-action-btn i {
+    font-size: 24px;
+}
+
+/* Calendário e Agendamento */
+.calendar-container {
+    background-color: white;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--card-shadow);
+}
+
+.calendar-header {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1.5rem;
+}
+
+.calendar-icon {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.calendar-nav {
+    display: flex;
+    align-items: center;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.calendar-weekdays {
+    margin-bottom: 0.75rem;
+}
+
+.calendar-weekdays .calendar-grid div {
+    padding: 0.75rem 0;
+    font-size: 0.875rem;
+}
+
+.calendar-day {
+    aspect-ratio: 1/1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--gray-100);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+    font-weight: 500;
+    min-height: 60px;
+}
+
+.calendar-day:hover {
+    background-color: var(--gray-200);
+    transform: translateY(-3px);
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+}
+
+.calendar-day.active {
+    background-color: var(--primary);
+    color: white;
+    box-shadow: 0 0.25rem 0.75rem rgba(67, 97, 238, 0.25);
+}
+
+.calendar-day.today {
+    border: 2px solid var(--primary);
+    font-weight: 700;
+}
+
+.calendar-day.other-month {
+    opacity: 0.4;
+}
+
+.calendar-day .events-count {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--warning);
+    color: white;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.calendar-day .appointments-dots {
+    position: absolute;
+    bottom: 8px;
+    display: flex;
+    gap: 3px;
+}
+
+.calendar-day .appointment-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: var(--primary);
+}
+
+.calendar-legend {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.legend-circle {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.calendar-filter select.form-select {
+    max-width: 200px;
+}
+
+.calendar-filter .input-group {
+    width: auto;
+    float: right;
+}
+
+/* Estilos para os dias com agendamentos */
+.calendar-day.has-appointments {
+    position: relative;
+}
+
+.calendar-day.has-appointments::after {
+    content: "";
+    position: absolute;
+    bottom: 6px;
+    width: 24px;
+    height: 3px;
+    background-color: var(--warning);
+    border-radius: 2px;
+}
+
+/* Notificação no badge do sidebar */
+.nav-link .badge {
+    font-size: 0.65rem;
+    padding: 0.25em 0.5em;
+}
+
+/* Estilo para rankings e listas */
+.ranking-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid var(--gray-200);
+    transition: var(--transition);
+}
+
+.ranking-item:hover {
+    background-color: var(--gray-100);
+}
+
+.ranking-item:last-child {
+    border-bottom: none;
+}
+
+.ranking-position {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: var(--primary);
+    color: white;
+    font-weight: bold;
+    font-size: 0.75rem;
+    margin-right: 1rem;
+}
+
+.ranking-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--gray-200);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    overflow: hidden;
+}
+
+.ranking-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ranking-avatar i {
+    font-size: 1.25rem;
+    color: var(--gray-600);
+}
+
+.ranking-info {
+    flex-grow: 1;
+}
+
+.ranking-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.ranking-details {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: var(--gray-600);
+}
+
+.ranking-value {
+    font-weight: 700;
+    margin-left: auto;
+    color: var(--gray-800);
+}
+
+.ranking-value.positive {
+    color: var(--success);
+}
+
+.ranking-value.negative {
+    color: var(--danger);
+}
+
+/* Animação para novos itens em listas */
+@keyframes newItemHighlight {
+    0% {
+        background-color: rgba(67, 97, 238, 0.2);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+.new-item-highlight {
+    animation: newItemHighlight 2s ease-out;
+}
+
+/* Estilos dos formulários */
+.form-control, .form-select {
+    border-radius: var(--border-radius);
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--gray-300);
+    transition: var(--transition);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--gray-700);
+}
+
+/* Modais */
+.modal-content {
+    border-radius: var(--border-radius);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+    border: none;
+    overflow: hidden;
+}
+
+.modal-header {
+    background-color: var(--gray-100);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 1.5rem;
+}
+
+.modal-title {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    background-color: var(--gray-100);
+    border-top: 1px solid var(--gray-200);
+    padding: 1rem 1.5rem;
+}
+
+/* Customizações adicionais */
+.dropdown-menu {
+    border-radius: var(--border-radius);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--gray-200);
+    padding: 0.5rem;
+}
+
+.dropdown-item {
+    border-radius: calc(var(--border-radius) - 0.25rem);
+    padding: 0.5rem 1rem;
+    transition: var(--transition);
+}
+
+.dropdown-item:hover {
+    background-color: rgba(67, 97, 238, 0.1);
+}
+
+.dropdown-header {
+    font-weight: 600;
+    color: var(--gray-600);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.alert {
+    border-radius: var(--border-radius);
+    padding: 1rem;
+}
+
+.pagination {
+    margin-bottom: 0;
+}
+
+.page-link {
+    border-radius: var(--border-radius);
+    margin: 0 0.2rem;
+    transition: var(--transition);
+    color: var(--primary);
+}
+
+.page-item.active .page-link {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+/* Melhorias nos cards de estatísticas */
+.card .h5 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--gray-800);
+}
+
+.text-gray-800 {
+    color: var(--gray-800) !important;
+}
+
+.text-gray-300 {
+    color: var(--gray-300) !important;
+}
+
+/* Personalização específica para cabeçalho da página */
+#page-title {
+    color: var(--gray-800);
+    font-weight: 600;
+}
+
+/* Estilização para gráficos */
+.chart-pie, .chart-bar {
+    height: 250px;
+    position: relative;
+}
+
+/* Melhorias no display de dados vazios */
+#clientes-empty, #servicos-empty, #produtos-empty, #barbeiros-empty, #agenda-empty {
+    padding: 2rem 0;
+}
+
+#clientes-empty i, #servicos-empty i, #produtos-empty i, #barbeiros-empty i, #agenda-empty i {
+    color: var(--gray-300);
+    margin-bottom: 1rem;
+}
+
+#clientes-empty p, #servicos-empty p, #produtos-empty p, #barbeiros-empty p, #agenda-empty p {
+    color: var(--gray-600);
+    margin-bottom: 1.5rem;
+}
+
+/* Estilos para os cartões de barbeiros */
+#barbeiros-cards-container .card {
+    transition: var(--transition);
+}
+
+#barbeiros-cards-container .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.15);
+}
+
+/* Ajustes adicionais */
+.font-weight-bold {
+    font-weight: 600 !important;
+}
+
+.responsive-table {
+    overflow-x: auto;
+}
+
+/* Layout responsivo aprimorado */
+@media (max-width: 576px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .modal-body {
+        padding: 1rem;
+    }
+    
+    .calendar-grid {
+        gap: 4px;
+    }
+    
+    .calendar-day {
+        font-size: 0.85rem;
+    }
+    
+    .floating-action-btn {
+        width: 50px;
+        height: 50px;
+        right: 20px;
+        bottom: 20px;
+    }
+} 
