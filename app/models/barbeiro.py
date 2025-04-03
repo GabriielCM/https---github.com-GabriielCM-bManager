@@ -11,18 +11,46 @@ class Barbeiro(Base):
     
     # Relacionamentos
     agendamentos = db.relationship('Agendamento', backref='barbeiro', lazy=True)
-    atendimentos = db.relationship('Atendimento', backref='barbeiro', lazy=True)
+    # Relacionamento com Atendimento é criado pelo backref em Atendimento
     
     def to_dict(self):
         especialidades_lista = self.especialidades.split(',') if self.especialidades else []
         
+        # Obter informações básicas do usuário associado
+        usuario_info = {
+            'nome': None,
+            'email': None,
+            'telefone': None
+        }
+        
+        if self.usuario:
+            usuario_info = {
+                'nome': self.usuario.nome,
+                'email': self.usuario.email,
+                'telefone': self.usuario.telefone if hasattr(self.usuario, 'telefone') else None
+            }
+        
+        # Calcular quantos agendamentos o barbeiro tem hoje
+        from datetime import datetime, timedelta
+        hoje_inicio = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        hoje_fim = hoje_inicio + timedelta(days=1)
+        
+        agendamentos_hoje = [a for a in self.agendamentos 
+                              if a.data_hora_inicio >= hoje_inicio and 
+                              a.data_hora_inicio < hoje_fim and
+                              a.status != 'cancelado']
+        
         return {
             'id': self.id,
             'usuario_id': self.usuario_id,
-            'nome': self.usuario.nome if self.usuario else None,
+            'nome': usuario_info['nome'],
+            'email': usuario_info['email'],
+            'telefone': usuario_info['telefone'],
             'especialidades': especialidades_lista,
+            'especialidades_texto': self.especialidades,
             'comissao_percentual': self.comissao_percentual,
             'disponivel': self.disponivel,
+            'agendamentos_hoje': len(agendamentos_hoje),
             'created_at': self.created_at,
             'updated_at': self.updated_at
         } 

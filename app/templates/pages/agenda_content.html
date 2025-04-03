@@ -212,6 +212,7 @@
                     $.ajax({
                         url: `/api/agendamentos/data/${hoje}`,
                         type: 'GET',
+                        dataType: 'json',
                         success: function(data) {
                             $('#resultado-diagnostico').html(
                                 `<div class="alert alert-success">
@@ -221,11 +222,18 @@
                             );
                         },
                         error: function(xhr, status, error) {
+                            let mensagemErro = `Erro ao buscar agendamentos: ${error}<br>Status: ${status}<br>`;
+                            
+                            if (xhr.responseText && xhr.responseText.indexOf('<!doctype') >= 0) {
+                                mensagemErro += 'Resposta: HTML recebido em vez de JSON. Verifique a configuração do servidor.';
+                                console.error('Resposta HTML recebida:', xhr.responseText.substring(0, 100) + '...');
+                            } else {
+                                mensagemErro += `Resposta: ${xhr.responseText}`;
+                            }
+                            
                             $('#resultado-diagnostico').html(
                                 `<div class="alert alert-danger">
-                                    Erro ao buscar agendamentos: ${error}<br>
-                                    Status: ${status}<br>
-                                    Resposta: ${xhr.responseText}
+                                    ${mensagemErro}
                                 </div>`
                             );
                         }

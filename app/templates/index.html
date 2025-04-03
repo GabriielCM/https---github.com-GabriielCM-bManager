@@ -1,129 +1,309 @@
-{% extends "base/layout.html" %}
-
-{% block title %}B-Manager - Sistema de Gerenciamento para Barbearias{% endblock %}
-
-{% block sidebar %}
-    {% include "components/sidebar.html" %}
-{% endblock %}
-
-{% block content %}
-    <!-- Login form (mostrado inicialmente) -->
-    {% include "components/login.html" %}
-
-    <!-- Dashboard (escondido inicialmente) -->
-    <div class="d-none" id="dashboard-container">
-        {% include "pages/dashboard.html" %}
-    </div>
-
-    <!-- Seção de agenda (escondida inicialmente) -->
-    <div class="d-none" id="agenda-container">
-        {% include "pages/agenda_content.html" %}
-    </div>
-
-    <!-- Seção de clientes (escondida inicialmente) -->
-    <div class="d-none" id="clientes-container">
-        {% include "pages/clientes.html" %}
-    </div>
-
-    <!-- Seção de serviços (escondida inicialmente) -->
-    <div class="d-none" id="servicos-container">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold">Gerenciamento de Serviços</h6>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B-Manager - Sistema de Gestão para Barbearias</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    
+    <!-- Estilos personalizados -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+</head>
+<body class="bg-light">
+    <div class="container-fluid p-0">
+        <div class="row g-0 min-vh-100">
+            <!-- Área de Login -->
+            <div id="login-form" class="col-md-5 d-flex align-items-center justify-content-center bg-primary bg-gradient min-vh-100">
+                <div class="auth-content text-center text-white p-5">
+                    <div class="mb-4">
+                        <h1 class="h2 mb-3">B-Manager</h1>
+                        <p>Sistema de Gestão para Barbearias</p>
+                    </div>
+                    
+                    <div class="card shadow">
+                        <div class="card-body p-4">
+                            <h2 class="text-primary mb-4">Login</h2>
+                            
+                            <form id="form-login">
+                                <div class="alert alert-danger d-none" id="login-error"></div>
+                                
+                                <div class="mb-3">
+                                    <label for="email" class="form-label text-start d-block text-dark">E-mail</label>
+                                    <input type="email" class="form-control" id="email" placeholder="seu@email.com" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="password" class="form-label text-start d-block text-dark">Senha</label>
+                                    <input type="password" class="form-control" id="password" placeholder="********" required>
+                                </div>
+                                
+                                <div class="mb-3 form-check text-start">
+                                    <input type="checkbox" class="form-check-input" id="remember-me">
+                                    <label class="form-check-label text-dark" for="remember-me">Lembrar de mim</label>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary w-100">Entrar</button>
+                            </form>
+                            
+                            <div class="mt-3 text-muted">
+                                <small>© 2023 B-Manager - Todos os direitos reservados</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <!-- Conteúdo da página de serviços será adicionado aqui -->
-                <div class="text-center py-4">
-                    <i class="fas fa-cut fa-3x text-gray-300 mb-3"></i>
-                    <p>Página de serviços em construção.</p>
+            
+            <!-- Área Principal (Dashboard) -->
+            <div id="dashboard-container" class="col-md-12 d-none">
+                <div class="d-flex">
+                    <!-- Sidebar -->
+                    <div class="sidebar bg-dark text-white">
+                        <div class="sidebar-brand p-3 border-bottom">
+                            <h3>B-Manager</h3>
+                        </div>
+                        
+                        <div class="p-3 border-bottom">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar rounded-circle bg-primary me-3">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div>
+                                    <div id="user-name-sidebar">Usuário</div>
+                                    <small class="text-muted">Admin</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="sidebar-menu">
+                            <ul class="nav flex-column">
+                                <li class="nav-item">
+                                    <a class="nav-link active" href="#" id="dashboard-link">
+                                        <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="/agenda" id="agenda-link">
+                                        <i class="fas fa-calendar-alt me-2"></i> Agenda
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" id="clientes-link">
+                                        <i class="fas fa-users me-2"></i> Clientes
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" id="servicos-link">
+                                        <i class="fas fa-cut me-2"></i> Serviços
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" id="produtos-link">
+                                        <i class="fas fa-box me-2"></i> Produtos
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" id="vendas-link">
+                                        <i class="fas fa-shopping-cart me-2"></i> Vendas
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" id="barbeiros-link">
+                                        <i class="fas fa-user-tie me-2"></i> Barbeiros
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" id="relatorios-link">
+                                        <i class="fas fa-chart-bar me-2"></i> Relatórios
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="#" id="configuracoes-link">
+                                        <i class="fas fa-cog me-2"></i> Configurações
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <div class="mt-auto p-3">
+                            <button id="logout-btn" class="btn btn-outline-light w-100">
+                                <i class="fas fa-sign-out-alt me-2"></i> Sair
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Conteúdo principal -->
+                    <div class="main-content p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2 id="page-title">Dashboard</h2>
+                            <div class="user-info">
+                                <span id="username">Usuário</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Área de conteúdo dinâmico -->
+                        <div id="content-area">
+                            <!-- Dashboard -->
+                            <div id="dashboard-content">
+                                <div class="row">
+                                    <div class="col-md-3 mb-4">
+                                        <div class="card shadow-sm border-primary">
+                                            <div class="card-body">
+                                                <h5 class="card-title">Agendamentos Hoje</h5>
+                                                <h2 class="card-text text-primary">12</h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 mb-4">
+                                        <div class="card shadow-sm border-success">
+                                            <div class="card-body">
+                                                <h5 class="card-title">Faturamento Diário</h5>
+                                                <h2 class="card-text text-success">R$ 780,00</h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 mb-4">
+                                        <div class="card shadow-sm border-info">
+                                            <div class="card-body">
+                                                <h5 class="card-title">Clientes Atendidos</h5>
+                                                <h2 class="card-text text-info">28</h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 mb-4">
+                                        <div class="card shadow-sm border-warning">
+                                            <div class="card-body">
+                                                <h5 class="card-title">Vendas Realizadas</h5>
+                                                <h2 class="card-text text-warning">9</h2>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-4">
+                                        <div class="card shadow-sm h-100">
+                                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                                <h5 class="mb-0">Próximos Agendamentos</h5>
+                                                <a href="/agenda" class="btn btn-sm btn-primary">Ver Agenda</a>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="list-group list-group-flush">
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>João Silva</strong> - Corte de Cabelo
+                                                            <div class="text-muted small">Com Carlos</div>
+                                                        </div>
+                                                        <span class="badge bg-primary rounded-pill">10:30</span>
+                                                    </div>
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>Maria Souza</strong> - Barba
+                                                            <div class="text-muted small">Com Paulo</div>
+                                                        </div>
+                                                        <span class="badge bg-primary rounded-pill">11:00</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-4">
+                                        <div class="card shadow-sm h-100">
+                                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                                <h5 class="mb-0">Produtos Mais Vendidos</h5>
+                                                <a href="#" class="btn btn-sm btn-primary">Ver Produtos</a>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="list-group list-group-flush">
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>Pomada Modeladora</strong>
+                                                            <div class="text-muted small">Estoque: 43 unidades</div>
+                                                        </div>
+                                                        <span class="badge bg-success rounded-pill">R$ 35,00</span>
+                                                    </div>
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <strong>Óleo para Barba</strong>
+                                                            <div class="text-muted small">Estoque: 27 unidades</div>
+                                                        </div>
+                                                        <span class="badge bg-success rounded-pill">R$ 28,00</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Seção de produtos (escondida inicialmente) -->
-    <div class="d-none" id="produtos-container">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold">Gerenciamento de Produtos</h6>
-            </div>
-            <div class="card-body">
-                <!-- Conteúdo da página de produtos será adicionado aqui -->
-                <div class="text-center py-4">
-                    <i class="fas fa-box fa-3x text-gray-300 mb-3"></i>
-                    <p>Página de produtos em construção.</p>
-                </div>
-            </div>
-        </div>
+    
+    <!-- Área para exibir notificações toast -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="toast-container"></div>
     </div>
-
-    <!-- Seção de vendas (escondida inicialmente) -->
-    <div class="d-none" id="vendas-container">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold">Gerenciamento de Vendas</h6>
-            </div>
-            <div class="card-body">
-                <!-- Conteúdo da página de vendas será adicionado aqui -->
-                <div class="text-center py-4">
-                    <i class="fas fa-cash-register fa-3x text-gray-300 mb-3"></i>
-                    <p>Página de vendas em construção.</p>
+    
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Script de Toast -->
+    <script>
+        function toast(message, type = 'info') {
+            const toastContainer = document.getElementById('toast-container');
+            const toastId = 'toast-' + Date.now();
+            
+            const toastClasses = {
+                'success': 'bg-success',
+                'error': 'bg-danger',
+                'warning': 'bg-warning text-dark',
+                'info': 'bg-info text-dark'
+            };
+            
+            const toastClass = toastClasses[type] || 'bg-info text-dark';
+            
+            const toastHtml = `
+                <div id="${toastId}" class="toast align-items-center ${toastClass} text-white border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Seção de barbeiros (escondida inicialmente) -->
-    <div class="d-none" id="barbeiros-container">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold">Gerenciamento de Barbeiros</h6>
-            </div>
-            <div class="card-body">
-                <!-- Conteúdo da página de barbeiros será adicionado aqui -->
-                <div class="text-center py-4">
-                    <i class="fas fa-user-tie fa-3x text-gray-300 mb-3"></i>
-                    <p>Página de barbeiros em construção.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Seção de relatórios (escondida inicialmente) -->
-    <div class="d-none" id="relatorios-container">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold">Relatórios</h6>
-            </div>
-            <div class="card-body">
-                <!-- Conteúdo da página de relatórios será adicionado aqui -->
-                <div class="text-center py-4">
-                    <i class="fas fa-chart-bar fa-3x text-gray-300 mb-3"></i>
-                    <p>Página de relatórios em construção.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Seção de configurações (escondida inicialmente) -->
-    <div class="d-none" id="config-container">
-        <div class="card shadow mb-4">
-            <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold">Configurações do Sistema</h6>
-            </div>
-            <div class="card-body">
-                <!-- Conteúdo da página de configurações será adicionado aqui -->
-                <div class="text-center py-4">
-                    <i class="fas fa-cog fa-3x text-gray-300 mb-3"></i>
-                    <p>Página de configurações em construção.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
+            `;
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            
+            const toastElement = document.getElementById(toastId);
+            const bsToast = new bootstrap.Toast(toastElement, { 
+                autohide: true,
+                delay: 5000
+            });
+            
+            bsToast.show();
+            
+            // Remover o toast do DOM depois que ele for fechado
+            toastElement.addEventListener('hidden.bs.toast', function() {
+                toastElement.remove();
+            });
+        }
+    </script>
+    
+    <!-- Script principal -->
+    <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Script para gerenciar a autenticação e navegação entre páginas
         const form = document.getElementById('form-login');
@@ -144,12 +324,12 @@
             'vendas': document.getElementById('vendas-link'),
             'barbeiros': document.getElementById('barbeiros-link'),
             'relatorios': document.getElementById('relatorios-link'),
-            'config': document.getElementById('config-link')
+            'config': document.getElementById('configuracoes-link')
         };
         
         // Gerenciamento de conteúdo
         const containers = {
-            'dashboard': document.getElementById('dashboard-container'),
+            'dashboard': document.getElementById('dashboard-content'),
             'agenda': document.getElementById('agenda-container'),
             'clientes': document.getElementById('clientes-container'),
             'servicos': document.getElementById('servicos-container'),
@@ -214,40 +394,122 @@
             }
         });
         
-        // Lógica de autenticação simulada
+        // Lógica de autenticação real com API
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
             
-            // Lógica de autenticação simplificada (apenas para demonstração)
-            if (email && password) {
-                // Em um cenário real, aqui faria uma requisição para a API
-                // Simulando login bem-sucedido
+            // Limpar erro anterior
+            loginError.classList.add('d-none');
+            
+            // Validar campos
+            if (!email || !password) {
+                loginError.textContent = 'Por favor, preencha todos os campos.';
+                loginError.classList.remove('d-none');
+                return;
+            }
+            
+            // Mostrar estado de loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Entrando...';
+            
+            // Fazer requisição para a API
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email,
+                    senha: password
+                }),
+            })
+            .then(response => {
+                return response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.erro || 'Erro ao fazer login');
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                // Armazenar token no localStorage
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('usuario', JSON.stringify(data.usuario));
+                
+                // Esconder formulário de login, mostrar dashboard
                 loginForm.classList.add('d-none');
                 dashboard.classList.remove('d-none');
                 
-                // Atualiza informações do usuário
-                const userName = email.split('@')[0];
+                // Atualizar informações do usuário
+                const userName = data.usuario.nome || email.split('@')[0];
                 userNameElement.textContent = userName;
                 userNameSidebar.textContent = userName;
                 
-                // Navega para a dashboard
+                // Navegar para o dashboard
                 showPage('dashboard');
-            } else {
-                loginError.textContent = 'Por favor, preencha todos os campos.';
+                
+                // Mostrar mensagem de sucesso
+                toast('Login realizado com sucesso!', 'success');
+            })
+            .catch(error => {
+                console.error('Erro de login:', error);
+                loginError.textContent = error.message;
                 loginError.classList.remove('d-none');
-            }
+            })
+            .finally(() => {
+                // Resetar estado do botão
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            });
         });
         
         // Lógica de logout
         logoutBtn.addEventListener('click', function() {
-            // Em um cenário real, aqui faria uma requisição para a API de logout
-            // Mostra o formulário de login novamente
+            // Limpar dados de autenticação
+            localStorage.removeItem('token');
+            localStorage.removeItem('usuario');
+            
+            // Mostrar formulário de login novamente
             dashboard.classList.add('d-none');
             loginForm.classList.remove('d-none');
+            
+            // Mostrar mensagem
+            toast('Logout realizado com sucesso!', 'info');
         });
+        
+        // Verificar autenticação existente
+        const token = localStorage.getItem('token');
+        const usuario = localStorage.getItem('usuario');
+        
+        if (token && usuario) {
+            try {
+                // Parsear dados do usuário
+                const userData = JSON.parse(usuario);
+                
+                // Esconder formulário de login, mostrar dashboard
+                loginForm.classList.add('d-none');
+                dashboard.classList.remove('d-none');
+                
+                // Atualizar informações do usuário
+                const userName = userData.nome || (userData.email ? userData.email.split('@')[0] : 'Usuário');
+                userNameElement.textContent = userName;
+                userNameSidebar.textContent = userName;
+                
+                // Navegar para o dashboard
+                showPage('dashboard');
+            } catch (error) {
+                console.error('Erro ao restaurar sessão:', error);
+                // Limpar dados de sessão inválidos
+                localStorage.removeItem('token');
+                localStorage.removeItem('usuario');
+            }
+        }
     });
-</script>
-{% endblock %} 
+    </script>
+</body>
+</html>

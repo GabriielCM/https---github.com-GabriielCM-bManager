@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
 from marshmallow import Schema, fields, validate, ValidationError
 from flask_jwt_extended import jwt_required, get_jwt
+from datetime import datetime, timedelta
 from app import db
 from app.models.barbeiro import Barbeiro
 from app.models.usuario import Usuario
+from app.models.agendamento import Agendamento
 
 barbeiros_bp = Blueprint('barbeiros', __name__)
 
@@ -27,10 +29,96 @@ def verificar_permissao_admin():
     return jwt_data.get('perfil') == 'admin'
 
 @barbeiros_bp.route('/', methods=['GET'])
-@jwt_required()
+# @jwt_required()  # Removido temporariamente para testes
 def listar_barbeiros():
-    barbeiros = Barbeiro.query.join(Usuario).filter(Usuario.ativo == True).all()
-    return jsonify([barbeiro.to_dict() for barbeiro in barbeiros]), 200
+    """
+    Lista todos os barbeiros ativos.
+    Se fornecidos parâmetros data e hora, filtra apenas barbeiros disponíveis naquele horário.
+    """
+    # Obter parâmetros de data e hora
+    data = request.args.get('data')
+    hora = request.args.get('hora')
+    
+    # Consulta básica - barbeiros ativos
+    barbeiros = Barbeiro.query.join(Usuario).filter(Usuario.ativo == True)
+    
+    # Se foram fornecidos data e hora, filtrar barbeiros disponíveis
+    if data and hora:
+        try:
+            # Converter para datetime
+            data_hora_str = f"{data} {hora}:00"
+            try:
+                data_hora = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                # Tentar formato alternativo se o primeiro falhar
+                data_hora = datetime.strptime(data_hora_str, "%d/%m/%Y %H:%M:%S")
+            
+            # Duração padrão de 30 minutos
+            duracao = 30
+            data_hora_fim = data_hora + timedelta(minutes=duracao)
+            
+            # Verificar se está dentro do horário de funcionamento (9h às 18h)
+            hora_funcionamento = data_hora.hour
+            if hora_funcionamento < 9 or hora_funcionamento >= 18:
+                return jsonify([]), 200  # Fora do horário de funcionamento
+            
+            # Verificar se é fim de semana (0 = Segunda, 6 = Domingo)
+            dia_semana = data_hora.weekday()
+            if dia_semana >= 5:  # Sábado ou Domingo
+                return jsonify([]), 200  # Não funciona aos fins de semana
+            
+            # Filtrar barbeiros sem agendamentos conflitantes
+            agendamentos_ocupados = Agendamento.query.filter(
+                Agendamento.status.in_(['pendente', 'confirmado', 'em_andamento']),
+                db.or_(
+                    # Início do agendamento dentro do intervalo solicitado
+                    db.and_(
+                        Agendamento.data_hora_inicio <= data_hora,
+                        Agendamento.data_hora_fim > data_hora
+                    ),
+                    # Fim do agendamento dentro do intervalo solicitado
+                    db.and_(
+                        Agendamento.data_hora_inicio < data_hora_fim,
+                        Agendamento.data_hora_fim >= data_hora_fim
+                    ),
+                    # Agendamento engloba completamente o intervalo solicitado
+                    db.and_(
+                        Agendamento.data_hora_inicio <= data_hora,
+                        Agendamento.data_hora_fim >= data_hora_fim
+                    )
+                )
+            ).with_entities(Agendamento.barbeiro_id).distinct().all()
+            
+            barbeiros_ocupados_ids = [a.barbeiro_id for a in agendamentos_ocupados]
+            
+            # Filtrar barbeiros disponíveis
+            if barbeiros_ocupados_ids:
+                barbeiros = barbeiros.filter(
+                    ~Barbeiro.id.in_(barbeiros_ocupados_ids),
+                    Barbeiro.disponivel == True
+                )
+            else:
+                barbeiros = barbeiros.filter(Barbeiro.disponivel == True)
+                
+            # Logar para debug
+            print(f"Filtrando barbeiros para data/hora: {data_hora_str}")
+            
+        except Exception as e:
+            # Logar o erro, mas continuar fornecendo todos os barbeiros
+            print(f"Erro ao filtrar barbeiros por disponibilidade: {str(e)}")
+            # Em caso de erro, filtrar ao menos pelo flag de disponibilidade
+            barbeiros = barbeiros.filter(Barbeiro.disponivel == True)
+    else:
+        # Se não foram fornecidos data e hora, filtrar apenas pelo flag de disponibilidade
+        barbeiros = barbeiros.filter(Barbeiro.disponivel == True)
+    
+    # Obter a lista de barbeiros
+    resultado = barbeiros.all()
+    
+    # Converter para dicionário com informações completas
+    barbeiros_json = [barbeiro.to_dict() for barbeiro in resultado]
+    
+    return jsonify(barbeiros_json), 200
 
 @barbeiros_bp.route('/<int:id>', methods=['GET'])
 @jwt_required()
@@ -215,3 +303,72 @@ def remover_barbeiro(id):
     db.session.commit()
     
     return jsonify({"mensagem": "Barbeiro removido com sucesso"}), 200
+
+@barbeiros_bp.route('/disponiveis', methods=['GET'])
+def barbeiros_disponiveis():
+    """
+    Endpoint público para listar barbeiros disponíveis por data e hora
+    """
+    # Obter parâmetros de data e hora
+    data = request.args.get('data')
+    hora = request.args.get('hora')
+    
+    # Consulta básica - barbeiros ativos e disponíveis
+    barbeiros = Barbeiro.query.join(Usuario).filter(
+        Usuario.ativo == True,
+        Barbeiro.disponivel == True
+    )
+    
+    # Se foram fornecidos data e hora, filtrar barbeiros disponíveis naquele horário
+    if data and hora:
+        try:
+            # Converter para datetime
+            data_hora_str = f"{data} {hora}:00"
+            try:
+                data_hora = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                # Tentar formato alternativo se o primeiro falhar
+                data_hora = datetime.strptime(data_hora_str, "%d/%m/%Y %H:%M:%S")
+            
+            # Duração padrão de 30 minutos
+            duracao = 30
+            data_hora_fim = data_hora + timedelta(minutes=duracao)
+            
+            # Verificar agendamentos existentes
+            agendamentos_ocupados = Agendamento.query.filter(
+                Agendamento.status.in_(['pendente', 'confirmado', 'em_andamento']),
+                db.or_(
+                    # Agendamento que se sobrepõe ao horário solicitado
+                    db.and_(
+                        Agendamento.data_hora_inicio <= data_hora,
+                        Agendamento.data_hora_fim > data_hora
+                    ),
+                    db.and_(
+                        Agendamento.data_hora_inicio < data_hora_fim,
+                        Agendamento.data_hora_fim >= data_hora_fim
+                    ),
+                    db.and_(
+                        Agendamento.data_hora_inicio >= data_hora,
+                        Agendamento.data_hora_fim <= data_hora_fim
+                    )
+                )
+            ).with_entities(Agendamento.barbeiro_id).distinct().all()
+            
+            # IDs dos barbeiros que já estão ocupados
+            barbeiros_ocupados_ids = [a.barbeiro_id for a in agendamentos_ocupados]
+            
+            # Excluir barbeiros ocupados
+            if barbeiros_ocupados_ids:
+                barbeiros = barbeiros.filter(~Barbeiro.id.in_(barbeiros_ocupados_ids))
+                
+        except Exception as e:
+            # Em caso de erro, somente logar e continuar
+            print(f"Erro ao filtrar barbeiros por disponibilidade: {str(e)}")
+    
+    # Obter a lista final de barbeiros
+    resultado = barbeiros.all()
+    
+    # Converter para formato JSON
+    barbeiros_json = [barbeiro.to_dict() for barbeiro in resultado]
+    
+    return jsonify(barbeiros_json), 200

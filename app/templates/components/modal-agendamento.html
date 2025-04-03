@@ -7,7 +7,8 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                <form id="form-agendamento">
+                <form id="agendamentoForm">
+                    <!-- ID do agendamento (usado para edição) -->
                     <input type="hidden" id="agendamento-id">
                     
                     <div class="row mb-3">
@@ -21,12 +22,14 @@
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </div>
+                            <div class="invalid-feedback">Selecione um cliente</div>
                         </div>
                         <div class="col-md-6">
                             <label for="barbeiro-select" class="form-label">Barbeiro</label>
                             <select class="form-select" id="barbeiro-select" required>
                                 <option value="">Selecione um barbeiro</option>
                             </select>
+                            <div class="invalid-feedback">Selecione um barbeiro</div>
                         </div>
                     </div>
 
@@ -34,10 +37,12 @@
                         <div class="col-md-6">
                             <label for="data-agendamento" class="form-label">Data</label>
                             <input type="date" class="form-control" id="data-agendamento" required>
+                            <div class="invalid-feedback">Selecione uma data</div>
                         </div>
                         <div class="col-md-6">
                             <label for="hora-agendamento" class="form-label">Horário</label>
                             <input type="time" class="form-control" id="hora-agendamento" required>
+                            <div class="invalid-feedback">Selecione um horário</div>
                         </div>
                     </div>
 
@@ -63,19 +68,19 @@
                         <div class="col-md-6">
                             <label class="form-label">Duração Estimada</label>
                             <div class="input-group">
-                                <input type="text" class="form-control" id="duracao-estimada" readonly>
+                                <input type="text" class="form-control" id="resumo-duracao" value="0 minutos" readonly>
                                 <span class="input-group-text">minutos</span>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Valor Total</label>
-                            <input type="text" class="form-control" id="valor-total" readonly>
+                            <input type="text" class="form-control" id="resumo-valor" value="R$ 0,00" readonly>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="observacoes" class="form-label">Observações</label>
-                        <textarea class="form-control" id="observacoes" rows="2"></textarea>
+                        <label for="observacoes-agendamento" class="form-label">Observações</label>
+                        <textarea class="form-control" id="observacoes-agendamento" rows="2"></textarea>
                     </div>
                 </form>
             </div>

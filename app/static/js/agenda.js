@@ -333,6 +333,7 @@ function loadAgendamentosDia(date) {
     $.ajax({
         url: `${API_URL}/agendamentos/data/${date}`,
         type: 'GET',
+        dataType: 'json',
         success: function(response) {
             console.log('Resposta da API:', response);
             $('#agenda-loading').addClass('d-none');
@@ -354,7 +355,19 @@ function loadAgendamentosDia(date) {
         error: function(xhr, status, error) {
             console.error('Erro ao carregar agendamentos:', xhr, status, error);
             $('#agenda-loading').addClass('d-none');
-            $('#agenda-lista').html('<tr><td colspan="6" class="text-center text-danger">Erro ao carregar agendamentos. Tente novamente.</td></tr>');
+            
+            if (xhr.status === 401 || xhr.status === 403) {
+                // Erro de autenticação
+                $('#agenda-lista').html('<tr><td colspan="6" class="text-center text-danger">Erro de autenticação. Faça login novamente.</td></tr>');
+                verificarAutenticacao();
+            } else if (xhr.responseText && xhr.responseText.indexOf('<!doctype') >= 0) {
+                // Resposta HTML em vez de JSON
+                $('#agenda-lista').html('<tr><td colspan="6" class="text-center text-danger">Erro: API retornou HTML em vez de JSON. Verifique a configuração do servidor.</td></tr>');
+                console.error('Resposta HTML recebida:', xhr.responseText.substring(0, 100) + '...');
+            } else {
+                $('#agenda-lista').html('<tr><td colspan="6" class="text-center text-danger">Erro ao carregar agendamentos. Tente novamente.</td></tr>');
+            }
+            
             mostrarErroAPI('Erro ao carregar agendamentos. Verifique a conexão com o servidor.');
         }
     });
@@ -455,6 +468,7 @@ function loadProximosAgendamentos() {
     $.ajax({
         url: `${API_URL}/agendamentos?data_inicio=${hoje}&status=pendente&por_pagina=5`,
         type: 'GET',
+        dataType: 'json',
         success: function(response) {
             console.log('Próximos agendamentos:', response);
             $('#proximos-agenda-loading').addClass('d-none');
@@ -502,39 +516,155 @@ function loadProximosAgendamentos() {
         error: function(xhr, status, error) {
             console.error('Erro ao carregar próximos agendamentos:', xhr, status, error);
             $('#proximos-agenda-loading').addClass('d-none');
-            $('#proximos-agenda').html('<div class="alert alert-danger">Erro ao carregar agendamentos futuros.</div>');
+            
+            if (xhr.status === 401 || xhr.status === 403) {
+                // Erro de autenticação
+                $('#proximos-agenda').html('<div class="alert alert-danger">Erro de autenticação. Faça login novamente.</div>');
+                verificarAutenticacao();
+            } else if (xhr.responseText && xhr.responseText.indexOf('<!doctype') >= 0) {
+                // Resposta HTML em vez de JSON
+                $('#proximos-agenda').html('<div class="alert alert-danger">Erro: API retornou HTML em vez de JSON. Verifique a configuração do servidor.</div>');
+                console.error('Resposta HTML recebida:', xhr.responseText.substring(0, 100) + '...');
+            } else {
+                $('#proximos-agenda').html('<div class="alert alert-danger">Erro ao carregar agendamentos futuros.</div>');
+            }
         }
     });
 }
 
 // Carregar barbeiros disponíveis para o horário selecionado
-function loadBarbeirosDisponiveis(date, horario = '') {
-    // Formatar horário para incluir na consulta se fornecido
-    let url = `${API_URL}/barbeiros?disponivel=true`;
+function loadBarbeirosDisponiveis(date, horario = '', callback = null) {
+    console.log('Carregando barbeiros disponíveis para:', date, horario);
     
-    if (date && horario) {
-        // Formatar data e hora para enviar para a API
-        const datetime = `${date}T${horario}`;
-        url += `&data_hora=${datetime}`;
+    const barbeiroSelect = $('#barbeiro-select');
+    
+    // Limpar e adicionar opção padrão
+    barbeiroSelect.empty();
+    barbeiroSelect.append('<option value="">Selecione um barbeiro</option>');
+    
+    // Mostrar loader no select enquanto carrega
+    barbeiroSelect.prop('disabled', true);
+    
+    // Se data ou horário não forem fornecidos, carregar todos os barbeiros
+    if (!date || !horario) {
+        // Obter token JWT
+        const token = localStorage.getItem('token');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        
+        // Carregar todos os barbeiros
+        $.ajax({
+            url: `${API_URL}/barbeiros`,
+            method: 'GET',
+            headers: headers,
+            timeout: 10000,
+            success: function(response) {
+                handleBarbeirosResponse(response, barbeiroSelect, callback);
+            },
+            error: function(xhr, status, error) {
+                handleBarbeirosError(xhr, status, error, barbeiroSelect, callback);
+            }
+        });
+        return;
     }
     
-    // Fazer requisição AJAX
+    // Parâmetros para a consulta
+    let params = `data=${date}&hora=${horario}`;
+    
+    // Obter token JWT
+    const token = localStorage.getItem('token');
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
+    // Fazer a requisição à API usando o endpoint específico para barbeiros disponíveis
     $.ajax({
-        url: url,
-        type: 'GET',
+        url: `${API_URL}/barbeiros/disponiveis?${params}`,
+        method: 'GET',
+        headers: headers,
+        timeout: 10000, // 10 segundos de timeout
         success: function(response) {
-            // Limpar select
-            $(barbeiroSelect).empty();
-            $(barbeiroSelect).append('<option value="">Selecione um barbeiro</option>');
-            
-            // Adicionar barbeiros disponíveis
-            if (response && response.items && response.items.length > 0) {
-                response.items.forEach(function(barbeiro) {
-                    $(barbeiroSelect).append(`<option value="${barbeiro.id}">${barbeiro.nome}</option>`);
-                });
-            }
+            handleBarbeirosResponse(response, barbeiroSelect, callback);
+        },
+        error: function(xhr, status, error) {
+            handleBarbeirosError(xhr, status, error, barbeiroSelect, callback);
         }
     });
+}
+
+// Função auxiliar para processar a resposta do servidor
+function handleBarbeirosResponse(response, barbeiroSelect, callback) {
+    console.log('Barbeiros disponíveis carregados:', response);
+    
+    // Habilitar select
+    barbeiroSelect.prop('disabled', false);
+    
+    // Adicionar opções ao select
+    if (response && response.length > 0) {
+        response.forEach(barbeiro => {
+            // Criar texto informativo com especialidades (se houver)
+            let infoTexto = '';
+            if (barbeiro.especialidades && barbeiro.especialidades.length > 0) {
+                infoTexto = ` - ${barbeiro.especialidades.join(', ')}`;
+            }
+            
+            // Adicionar opção ao select
+            barbeiroSelect.append(
+                `<option value="${barbeiro.id}" 
+                  data-email="${barbeiro.email || ''}" 
+                  data-telefone="${barbeiro.telefone || ''}"
+                  data-agendamentos="${barbeiro.agendamentos_hoje || 0}"
+                  ${!barbeiro.disponivel ? 'disabled' : ''}>
+                  ${barbeiro.nome}${infoTexto}
+                </option>`
+            );
+        });
+        
+        // Se for apenas um barbeiro, seleciona-o automaticamente
+        if (response.length === 1) {
+            barbeiroSelect.val(response[0].id);
+            // Disparar evento de mudança para atualizar campos dependentes
+            barbeiroSelect.trigger('change');
+        }
+    } else {
+        barbeiroSelect.append('<option value="" disabled>Nenhum barbeiro disponível para este horário</option>');
+        // Mostrar mensagem amigável ao usuário
+        mostrarNotificacao('Não há barbeiros disponíveis para este horário. Por favor, escolha outro horário.', 'warning');
+    }
+    
+    // Executar callback se fornecido
+    if (typeof callback === 'function') {
+        callback();
+    }
+}
+
+// Função auxiliar para processar erros
+function handleBarbeirosError(xhr, status, error, barbeiroSelect, callback) {
+    // Habilitar select
+    barbeiroSelect.prop('disabled', false);
+    
+    console.error('Erro ao carregar barbeiros:', xhr.responseText);
+    barbeiroSelect.append('<option value="" disabled>Erro ao carregar barbeiros</option>');
+    
+    // Extrair mensagem de erro da resposta (se possível)
+    let mensagemErro = 'Erro ao carregar barbeiros disponíveis.';
+    try {
+        if (xhr.responseJSON && xhr.responseJSON.erro) {
+            mensagemErro = xhr.responseJSON.erro;
+        } else if (xhr.responseText) {
+            const response = JSON.parse(xhr.responseText);
+            if (response.erro) mensagemErro = response.erro;
+        }
+    } catch (e) {
+        // Se falhar ao parsear JSON, usar mensagem padrão
+    }
+    
+    // Mostrar erro apenas se não for 404 (recurso não encontrado)
+    if (xhr.status !== 404) {
+        mostrarNotificacao(mensagemErro, 'error');
+    }
+    
+    // Executar callback se fornecido
+    if (typeof callback === 'function') {
+        callback();
+    }
 }
 
 // Carregar lista de clientes
@@ -559,104 +689,130 @@ function loadClientesSelect() {
 
 // Abrir modal de agendamento
 function openModalAgendamento(id = null, clienteId = null, dataString = null) {
-    console.log('Abrindo modal de agendamento');
+    console.log('Abrindo modal de agendamento:', { id, clienteId, dataString });
     
-    // Limpar formulário
-    $('#form-agendamento')[0].reset();
-    $('#agendamento-id').val('');
-    $('#servicos-selecionados').html('');
-    $('#servicos-erro').addClass('d-none');
-    
-    // Resetar variáveis
+    // Resetar o formulário e as listas
+    $('#agendamentoForm')[0].reset();
     servicosSelecionados = [];
     duracaoTotal = 0;
     valorTotal = 0;
-    $('#duracao-estimada').val('0');
-    $('#valor-total').val('R$ 0,00');
+    $('#servicos-selecionados').empty();
+    $('#resumo-duracao').text('0 minutos');
+    $('#resumo-valor').text('R$ 0,00');
+    $('.is-invalid').removeClass('is-invalid');
+    $('.alert-danger').addClass('d-none');
     
-    modoEdicao = false;
-    
-    // Atualizar título do modal
-    $('#agendamentoModalLabel').text('Novo Agendamento');
-    
-    // Se for edição
+    // Definir o título do modal
     if (id) {
-        console.log('Modo de edição, ID:', id);
         $('#agendamentoModalLabel').text('Editar Agendamento');
-        $('#agendamento-id').val(id);
         modoEdicao = true;
+        $('#agendamentoModal').data('agendamento-id', id);
+    } else {
+        $('#agendamentoModalLabel').text('Novo Agendamento');
+        modoEdicao = false;
+        $('#agendamentoModal').removeData('agendamento-id');
+    }
+    
+    // Se for fornecida uma data, preencher o campo
+    if (dataString) {
+        const data = parseDate(dataString);
+        $('#data-agendamento').val(formatDate(data));
         
-        // Carregar dados do agendamento
+        // Definir horário padrão como agora (arredondado para próximos 30 minutos)
+        const agora = new Date();
+        const minutos = Math.ceil(agora.getMinutes() / 30) * 30;
+        agora.setMinutes(minutos, 0, 0);
+        
+        const horas = agora.getHours().toString().padStart(2, '0');
+        const mins = agora.getMinutes().toString().padStart(2, '0');
+        $('#hora-agendamento').val(`${horas}:${mins}`);
+    } else {
+        // Definir data padrão como hoje
+        const hoje = new Date();
+        $('#data-agendamento').val(formatDate(hoje));
+        
+        // Definir horário padrão como agora (arredondado para próximos 30 minutos)
+        const minutos = Math.ceil(hoje.getMinutes() / 30) * 30;
+        hoje.setMinutes(minutos, 0, 0);
+        
+        const horas = hoje.getHours().toString().padStart(2, '0');
+        const mins = hoje.getMinutes().toString().padStart(2, '0');
+        $('#hora-agendamento').val(`${horas}:${mins}`);
+    }
+    
+    // Se for fornecido um ID de cliente, selecionar
+    if (clienteId) {
+        $('#cliente-select').val(clienteId);
+    }
+    
+    // Carregar os barbeiros disponíveis
+    loadBarbeirosDisponiveis($('#data-agendamento').val(), $('#hora-agendamento').val());
+    
+    // Se estiver editando, carregar os dados do agendamento
+    if (id) {
+        // Mostrar loader
+        const modalBody = $('#agendamentoModal .modal-body');
+        modalBody.append('<div id="loading-agendamento" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Carregando dados do agendamento...</p></div>');
+        
+        // Obter o token JWT
+        const token = localStorage.getItem('token');
+        
+        // Fazer a requisição à API
         $.ajax({
             url: `${API_URL}/agendamentos/${id}`,
-            type: 'GET',
-            success: function(agendamento) {
-                console.log('Dados do agendamento carregados:', agendamento);
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            success: function(response) {
+                console.log('Dados do agendamento carregados:', response);
                 
-                // Preencher campos
-                $('#cliente-select').val(agendamento.cliente_id);
-                $('#barbeiro-select').val(agendamento.barbeiro_id);
+                // Preencher o formulário
+                $('#cliente-select').val(response.cliente_id);
                 
-                // Formatar data e hora
-                const dataHora = new Date(agendamento.data_hora_inicio);
-                const data = dataHora.toISOString().split('T')[0];
-                const hora = dataHora.toTimeString().slice(0, 5);
+                // Formatar a data e hora
+                const dataHora = new Date(response.data_hora_inicio);
+                const data = formatDate(dataHora);
+                
+                const horas = dataHora.getHours().toString().padStart(2, '0');
+                const minutos = dataHora.getMinutes().toString().padStart(2, '0');
+                const hora = `${horas}:${minutos}`;
                 
                 $('#data-agendamento').val(data);
                 $('#hora-agendamento').val(hora);
-                $('#observacoes').val(agendamento.observacoes);
+                $('#observacoes-agendamento').val(response.observacoes);
+                
+                // Carregar barbeiros antes de selecionar
+                loadBarbeirosDisponiveis(data, hora, function() {
+                    $('#barbeiro-select').val(response.barbeiro_id);
+                });
                 
                 // Adicionar serviços
-                if (agendamento.servicos && agendamento.servicos.length > 0) {
-                    agendamento.servicos.forEach(servico => {
+                if (response.servicos && response.servicos.length > 0) {
+                    for (const servico of response.servicos) {
                         adicionarServicoSelecionado(
                             servico.id,
                             servico.nome,
                             servico.preco,
                             servico.duracao_estimada_min
                         );
-                    });
+                    }
                 }
             },
             error: function(xhr, status, error) {
-                console.error('Erro ao carregar dados do agendamento:', xhr, status, error);
-                mostrarNotificacao('Erro ao carregar dados do agendamento', 'danger');
+                console.error('Erro ao carregar agendamento:', xhr.responseText);
+                mostrarNotificacao('Erro ao carregar dados do agendamento', 'error');
+            },
+            complete: function() {
+                // Remover loader
+                $('#loading-agendamento').remove();
             }
         });
-    } else {
-        // Se for novo agendamento, preencher com a data atual ou selecionada
-        const hoje = new Date();
-        const dataAgendamento = dataString ? new Date(dataString) : hoje;
-        
-        const dataFormatada = dataAgendamento.toISOString().split('T')[0];
-        $('#data-agendamento').val(dataFormatada);
-        
-        // Horário padrão (9:00)
-        $('#hora-agendamento').val('09:00');
-        
-        // Se foi informado um cliente, selecionar
-        if (clienteId) {
-            $('#cliente-select').val(clienteId);
-        }
     }
     
-    // Mostrar modal corretamente usando Bootstrap 5
-    console.log("Modal element:", document.getElementById('agendamentoModal'));
-    const modalElement = document.getElementById('agendamentoModal');
-    
-    if (modalElement) {
-        try {
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-            console.log("Modal aberto com sucesso");
-        } catch (error) {
-            console.error("Erro ao abrir o modal:", error);
-            alert("Erro ao abrir o modal. Verifique o console para mais detalhes.");
-        }
-    } else {
-        console.error("Elemento do modal não encontrado!");
-        alert("Elemento do modal não encontrado. Verifique se o ID está correto.");
-    }
+    // Abrir o modal
+    const modal = new bootstrap.Modal(document.getElementById('agendamentoModal'));
+    modal.show();
 }
 
 // Carregar lista de serviços
@@ -750,56 +906,144 @@ function removerServicoSelecionado(id) {
 
 // Função para concluir um agendamento
 function concluirAgendamento(id) {
+    console.log('Concluindo agendamento ID:', id);
+    
+    // Verificar autenticação
+    if (!verificarAutenticacao()) {
+        return;
+    }
+    
+    // Confirmar antes de concluir
     $('#confirmacao-titulo').text('Concluir Agendamento');
-    $('#confirmacao-mensagem').text('Deseja marcar este agendamento como concluído?');
+    $('#confirmacao-mensagem').text('Tem certeza que deseja marcar este agendamento como concluído?');
     $('#confirmacao-btn').removeClass('btn-danger').addClass('btn-success').text('Concluir');
     
-    // Configurar ação do botão de confirmação
+    // Configurar ação de confirmação
     $('#confirmacao-btn').off('click').on('click', function() {
+        // Fechar modal de confirmação
+        $('#confirmacaoModal').modal('hide');
+        
+        // Obter token
+        const token = localStorage.getItem('token');
+        
+        // Fazer requisição à API
         $.ajax({
             url: `${API_URL}/agendamentos/${id}/concluir`,
-            type: 'POST',
-            success: function() {
-                $('#confirmacaoModal').modal('hide');
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            contentType: 'application/json',
+            data: JSON.stringify({}),
+            success: function(response) {
+                console.log('Agendamento concluído com sucesso:', response);
+                
+                // Atualizar lista de agendamentos
                 loadAgendamentosDia(currentDate);
                 loadProximosAgendamentos();
-                mostrarNotificacao('Agendamento concluído com sucesso!', 'success');
+                
+                // Mostrar notificação de sucesso
+                mostrarNotificacao(response.mensagem || 'Agendamento concluído com sucesso!', 'success');
             },
-            error: function(xhr) {
-                $('#confirmacaoModal').modal('hide');
-                mostrarNotificacao('Erro ao concluir agendamento: ' + (xhr.responseJSON?.erro || 'Erro desconhecido'), 'danger');
+            error: function(xhr, status, error) {
+                console.error('Erro ao concluir agendamento:', xhr.responseText);
+                
+                // Verificar se é erro de autenticação
+                if (handleAuthError(xhr)) {
+                    return;
+                }
+                
+                let mensagemErro = 'Erro ao concluir agendamento.';
+                
+                try {
+                    const resposta = JSON.parse(xhr.responseText);
+                    if (resposta.erro) {
+                        mensagemErro = resposta.erro;
+                    }
+                } catch (e) {
+                    // Se não conseguir parsear, usar mensagem genérica
+                }
+                
+                mostrarNotificacao(mensagemErro, 'error');
             }
         });
     });
     
-    $('#confirmacaoModal').modal('show');
+    // Mostrar modal de confirmação
+    const modal = new bootstrap.Modal(document.getElementById('confirmacaoModal'));
+    modal.show();
 }
 
 // Função para cancelar um agendamento
 function cancelarAgendamento(id) {
+    console.log('Cancelando agendamento ID:', id);
+    
+    // Verificar autenticação
+    if (!verificarAutenticacao()) {
+        return;
+    }
+    
+    // Confirmar antes de cancelar
     $('#confirmacao-titulo').text('Cancelar Agendamento');
-    $('#confirmacao-mensagem').text('Deseja realmente cancelar este agendamento?');
+    $('#confirmacao-mensagem').text('Tem certeza que deseja cancelar este agendamento? Esta ação não pode ser desfeita.');
     $('#confirmacao-btn').removeClass('btn-success').addClass('btn-danger').text('Cancelar');
     
-    // Configurar ação do botão de confirmação
+    // Configurar ação de confirmação
     $('#confirmacao-btn').off('click').on('click', function() {
+        // Fechar modal de confirmação
+        $('#confirmacaoModal').modal('hide');
+        
+        // Obter token
+        const token = localStorage.getItem('token');
+        
+        // Fazer requisição à API
         $.ajax({
             url: `${API_URL}/agendamentos/${id}/cancelar`,
-            type: 'POST',
-            success: function() {
-                $('#confirmacaoModal').modal('hide');
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            contentType: 'application/json',
+            data: JSON.stringify({
+                motivo: 'Cancelado pelo usuário'
+            }),
+            success: function(response) {
+                console.log('Agendamento cancelado com sucesso:', response);
+                
+                // Atualizar lista de agendamentos
                 loadAgendamentosDia(currentDate);
                 loadProximosAgendamentos();
-                mostrarNotificacao('Agendamento cancelado com sucesso!', 'success');
+                
+                // Mostrar notificação de sucesso
+                mostrarNotificacao(response.mensagem || 'Agendamento cancelado com sucesso!', 'success');
             },
-            error: function(xhr) {
-                $('#confirmacaoModal').modal('hide');
-                mostrarNotificacao('Erro ao cancelar agendamento: ' + (xhr.responseJSON?.erro || 'Erro desconhecido'), 'danger');
+            error: function(xhr, status, error) {
+                console.error('Erro ao cancelar agendamento:', xhr.responseText);
+                
+                // Verificar se é erro de autenticação
+                if (handleAuthError(xhr)) {
+                    return;
+                }
+                
+                let mensagemErro = 'Erro ao cancelar agendamento.';
+                
+                try {
+                    const resposta = JSON.parse(xhr.responseText);
+                    if (resposta.erro) {
+                        mensagemErro = resposta.erro;
+                    }
+                } catch (e) {
+                    // Se não conseguir parsear, usar mensagem genérica
+                }
+                
+                mostrarNotificacao(mensagemErro, 'error');
             }
         });
     });
     
-    $('#confirmacaoModal').modal('show');
+    // Mostrar modal de confirmação
+    const modal = new bootstrap.Modal(document.getElementById('confirmacaoModal'));
+    modal.show();
 }
 
 // Visualizar agendamento
@@ -856,176 +1100,433 @@ function formatDisplayDate(dateString) {
 
 // Salvar agendamento
 function salvarAgendamento() {
+    console.log('Salvando agendamento...');
+    
     // Validar formulário
     if (!validarFormularioAgendamento()) {
         return;
     }
     
-    // Obter dados do formulário
+    // Obter os dados do formulário
     const clienteId = $('#cliente-select').val();
     const barbeiroId = $('#barbeiro-select').val();
-    const data = $('#data-agendamento').val();
-    const hora = $('#hora-agendamento').val();
-    const observacoes = $('#observacoes').val();
+    const dataAgendamento = $('#data-agendamento').val();
+    const horaAgendamento = $('#hora-agendamento').val();
+    const observacoes = $('#observacoes-agendamento').val();
     
-    // Combinar data e hora
-    const dataHoraInicio = `${data}T${hora}`;
+    // Verificar se há serviços selecionados
+    if (servicosSelecionados.length === 0) {
+        mostrarNotificacao('Selecione pelo menos um serviço para o agendamento.', 'warning');
+        return;
+    }
     
-    // Mapear serviços selecionados
-    const servicos = servicosSelecionados.map(s => ({ servico_id: s.id }));
+    // Montar a data completa no formato ISO
+    const dataHoraInicio = new Date(`${dataAgendamento}T${horaAgendamento}`);
     
-    // Construir payload
-    const payload = {
+    // Montar os serviços no formato esperado pela API
+    const servicos = servicosSelecionados.map(s => ({ servico_id: parseInt(s.id) }));
+    
+    // Dados para enviar à API
+    const dadosAgendamento = {
         cliente_id: parseInt(clienteId),
         barbeiro_id: parseInt(barbeiroId),
-        data_hora_inicio: dataHoraInicio,
+        data_hora_inicio: dataHoraInicio.toISOString(),
         servicos: servicos,
         observacoes: observacoes
     };
     
-    // ID do agendamento (se estiver editando)
-    const agendamentoId = $('#agendamento-id').val();
+    console.log('Dados do agendamento:', dadosAgendamento);
     
-    // URL e método da requisição
-    let url = `${API_URL}/agendamentos`;
+    // Mostrar loader
+    $('#btn-salvar-agendamento').prop('disabled', true);
+    $('#btn-salvar-agendamento').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...');
+    
+    // URL e método para a requisição
+    let url = `${API_URL}/agendamentos/`;
     let method = 'POST';
     
-    if (agendamentoId) {
-        url += `/${agendamentoId}`;
+    // Se estiver editando um agendamento existente
+    const agendamentoId = $('#agendamentoModal').data('agendamento-id');
+    if (agendamentoId && modoEdicao) {
+        url = `${API_URL}/agendamentos/${agendamentoId}`;
         method = 'PUT';
     }
     
-    // Enviar requisição
+    // Obter o token JWT do localStorage
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+        mostrarNotificacao('Você precisa estar autenticado para realizar esta ação.', 'error');
+        $('#btn-salvar-agendamento').prop('disabled', false);
+        $('#btn-salvar-agendamento').html('Salvar');
+        return;
+    }
+    
+    // Fazer a requisição à API
     $.ajax({
         url: url,
-        type: method,
+        method: method,
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
         contentType: 'application/json',
-        data: JSON.stringify(payload),
+        data: JSON.stringify(dadosAgendamento),
         success: function(response) {
+            console.log('Agendamento salvo com sucesso:', response);
+            
+            // Resetar formulário e fechar modal
+            $('#agendamentoForm')[0].reset();
+            servicosSelecionados = [];
+            duracaoTotal = 0;
+            valorTotal = 0;
+            $('#servicos-selecionados').empty();
+            $('#resumo-duracao').text('0 minutos');
+            $('#resumo-valor').text('R$ 0,00');
+            
             // Fechar modal
             $('#agendamentoModal').modal('hide');
             
-            // Recarregar agendamentos
+            // Atualizar lista de agendamentos
             loadAgendamentosDia(currentDate);
             loadProximosAgendamentos();
             
-            // Notificar usuário
-            if (agendamentoId) {
-                mostrarNotificacao('Agendamento atualizado com sucesso!', 'success');
-            } else {
-                mostrarNotificacao('Agendamento criado com sucesso!', 'success');
-            }
+            // Mostrar notificação de sucesso
+            mostrarNotificacao(response.mensagem || 'Agendamento realizado com sucesso!', 'success');
         },
-        error: function(xhr) {
-            let mensagem = 'Erro ao salvar agendamento';
+        error: function(xhr, status, error) {
+            console.error('Erro ao salvar agendamento:', xhr.responseText);
+            let mensagemErro = 'Erro ao salvar agendamento.';
             
-            if (xhr.responseJSON && xhr.responseJSON.erro) {
-                mensagem += ': ' + xhr.responseJSON.erro;
+            try {
+                const resposta = JSON.parse(xhr.responseText);
                 
-                // Tratar erros específicos
-                if (xhr.responseJSON.erro.includes('disponível')) {
-                    mostrarNotificacao('O horário selecionado não está disponível para este barbeiro', 'danger');
-                    return;
+                if (resposta.erro) {
+                    mensagemErro = resposta.erro;
+                    
+                    // Caso específico: Horário indisponível
+                    if (mensagemErro.includes('Horário não disponível')) {
+                        mensagemErro = `O horário selecionado não está disponível para o barbeiro escolhido. 
+                                        Por favor, selecione outro horário ou outro profissional.`;
+                    }
+                    
+                    // Detalhes adicionais de validação
+                    if (resposta.detalhes) {
+                        const detalhes = Object.entries(resposta.detalhes)
+                            .map(([campo, erro]) => `${campo}: ${erro}`)
+                            .join(', ');
+                        
+                        mensagemErro += ` Detalhes: ${detalhes}`;
+                    }
+                }
+            } catch (e) {
+                // Se não conseguir parsear a resposta, usar mensagem genérica
+                if (xhr.status === 401) {
+                    mensagemErro = 'Sua sessão expirou. Por favor, faça login novamente.';
+                    // Redirecionar para login
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 2000);
+                } else if (xhr.status === 403) {
+                    mensagemErro = 'Você não tem permissão para realizar esta ação.';
+                } else if (xhr.status === 404) {
+                    mensagemErro = 'Recurso não encontrado.';
+                } else if (xhr.status === 500) {
+                    mensagemErro = 'Erro interno do servidor. Por favor, tente novamente mais tarde.';
                 }
             }
             
-            mostrarNotificacao(mensagem, 'danger');
+            mostrarNotificacao(mensagemErro, 'error');
+        },
+        complete: function() {
+            // Resetar botão
+            $('#btn-salvar-agendamento').prop('disabled', false);
+            $('#btn-salvar-agendamento').html('Salvar');
         }
     });
 }
 
 // Validar formulário de agendamento
 function validarFormularioAgendamento() {
-    let valido = true;
+    console.log('Validando formulário de agendamento...');
     
-    // Validar campos básicos
-    if (!$('#cliente-select').val()) {
-        mostrarNotificacao('Selecione um cliente', 'warning');
-        valido = false;
+    let formValido = true;
+    
+    // Remover classes de erro anteriores
+    $('.is-invalid').removeClass('is-invalid');
+    $('.alert-danger').addClass('d-none');
+    
+    // Validar cliente
+    const clienteId = $('#cliente-select').val();
+    if (!clienteId) {
+        $('#cliente-select').addClass('is-invalid');
+        formValido = false;
     }
     
-    if (!$('#barbeiro-select').val()) {
-        mostrarNotificacao('Selecione um barbeiro', 'warning');
-        valido = false;
+    // Validar barbeiro
+    const barbeiroId = $('#barbeiro-select').val();
+    if (!barbeiroId) {
+        $('#barbeiro-select').addClass('is-invalid');
+        formValido = false;
     }
     
-    if (!$('#data-agendamento').val()) {
-        mostrarNotificacao('Selecione uma data', 'warning');
-        valido = false;
+    // Validar data
+    const dataAgendamento = $('#data-agendamento').val();
+    if (!dataAgendamento) {
+        $('#data-agendamento').addClass('is-invalid');
+        formValido = false;
+    } else {
+        // Verificar se a data não é anterior à data atual
+        const dataAtual = new Date();
+        dataAtual.setHours(0, 0, 0, 0);
+        
+        const dataSelecionada = new Date(dataAgendamento);
+        dataSelecionada.setHours(0, 0, 0, 0);
+        
+        if (dataSelecionada < dataAtual) {
+            $('#data-agendamento').addClass('is-invalid');
+            $('#data-agendamento').next('.invalid-feedback').text('A data não pode ser anterior à data atual');
+            formValido = false;
+        }
     }
     
-    if (!$('#hora-agendamento').val()) {
-        mostrarNotificacao('Selecione um horário', 'warning');
-        valido = false;
+    // Validar hora
+    const horaAgendamento = $('#hora-agendamento').val();
+    if (!horaAgendamento) {
+        $('#hora-agendamento').addClass('is-invalid');
+        formValido = false;
+    } else {
+        // Verificar se, para hoje, a hora não é anterior à hora atual
+        const dataAtual = new Date();
+        const dataSelecionada = new Date(dataAgendamento);
+        
+        if (dataSelecionada.toDateString() === dataAtual.toDateString()) {
+            const [hora, minuto] = horaAgendamento.split(':').map(Number);
+            const horaSelecionada = new Date();
+            horaSelecionada.setHours(hora, minuto, 0, 0);
+            
+            if (horaSelecionada < dataAtual) {
+                $('#hora-agendamento').addClass('is-invalid');
+                $('#hora-agendamento').next('.invalid-feedback').text('A hora não pode ser anterior à hora atual');
+                formValido = false;
+            }
+        }
     }
     
     // Validar serviços
     if (servicosSelecionados.length === 0) {
         $('#servicos-erro').removeClass('d-none');
-        mostrarNotificacao('Selecione pelo menos um serviço', 'warning');
-        valido = false;
+        formValido = false;
     }
     
-    return valido;
+    if (!formValido) {
+        mostrarNotificacao('Por favor, corrija os erros no formulário.', 'warning');
+    }
+    
+    return formValido;
 }
 
 // Mostrar notificação
 function mostrarNotificacao(mensagem, tipo) {
-    console.log(`Notificação: ${mensagem} (tipo: ${tipo})`);
+    console.log(`Notificação: ${mensagem} (${tipo})`);
     
-    // Verificar se a função toast está disponível no escopo global
-    if (typeof toast === 'function') {
-        toast(mensagem, tipo);
-    } else {
-        // Fallback para alert se a função toast não estiver disponível
-        alert(mensagem);
+    // Mapear tipo para classes do Bootstrap
+    const classesTipo = {
+        'success': 'alert-success',
+        'error': 'alert-danger',
+        'warning': 'alert-warning',
+        'info': 'alert-info'
+    };
+    
+    // Usar alert-info como padrão se o tipo não for reconhecido
+    const classeAlerta = classesTipo[tipo] || 'alert-info';
+    
+    // Criar o elemento de notificação
+    const notificacao = document.createElement('div');
+    notificacao.className = `alert ${classeAlerta} alert-dismissible fade show notification-toast`;
+    notificacao.role = 'alert';
+    notificacao.innerHTML = `
+        ${mensagem}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+    `;
+    
+    // Adicionar estilo para posicionar no topo direito
+    notificacao.style.position = 'fixed';
+    notificacao.style.top = '20px';
+    notificacao.style.right = '20px';
+    notificacao.style.minWidth = '300px';
+    notificacao.style.maxWidth = '500px';
+    notificacao.style.zIndex = '9999';
+    
+    // Adicionar ao corpo do documento
+    document.body.appendChild(notificacao);
+    
+    // Criar instância do Bootstrap Alert
+    const bsAlert = new bootstrap.Alert(notificacao);
+    
+    // Remover automaticamente após 5 segundos
+    setTimeout(() => {
+        bsAlert.close();
+    }, 5000);
+}
+
+// Função para lidar com erros de autenticação
+function handleAuthError(xhr) {
+    if (xhr.status === 401) {
+        // Token expirado ou inválido
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+        
+        mostrarNotificacao(
+            'Sua sessão expirou. Por favor, faça login novamente.',
+            'warning'
+        );
+        
+        // Redirecionar para login após 2 segundos
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 2000);
+        
+        return true;
     }
+    
+    return false;
+}
+
+// Função para verificar autenticação antes de ações protegidas
+function verificarAutenticacao() {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+        mostrarNotificacao(
+            'Você precisa estar autenticado para realizar esta ação.',
+            'warning'
+        );
+        
+        // Redirecionar para login após 2 segundos
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 2000);
+        
+        return false;
+    }
+    
+    return true;
 }
 
 // Salvar cliente rápido
 function salvarClienteRapido() {
-    // Validar formulário
-    if (!$('#cliente-nome').val() || !$('#cliente-telefone').val()) {
-        mostrarNotificacao('Preencha os campos obrigatórios', 'warning');
+    console.log('Salvando cliente rápido...');
+    
+    // Validar dados básicos
+    const nome = $('#cliente-nome').val().trim();
+    const telefone = $('#cliente-telefone').val().trim();
+    const email = $('#cliente-email').val().trim();
+    
+    if (!nome) {
+        mostrarNotificacao('O nome do cliente é obrigatório.', 'warning');
         return;
     }
     
-    // Obter dados do formulário
-    const nome = $('#cliente-nome').val();
-    const telefone = $('#cliente-telefone').val();
-    const email = $('#cliente-email').val();
+    if (!telefone) {
+        mostrarNotificacao('O telefone do cliente é obrigatório.', 'warning');
+        return;
+    }
     
-    // Construir payload
-    const payload = {
+    // Verificar autenticação
+    if (!verificarAutenticacao()) {
+        return;
+    }
+    
+    // Obter token
+    const token = localStorage.getItem('token');
+    
+    // Mostrar loader
+    $('#btn-salvar-cliente-rapido').prop('disabled', true);
+    $('#btn-salvar-cliente-rapido').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...');
+    
+    // Dados do cliente
+    const dadosCliente = {
         nome: nome,
         telefone: telefone,
-        email: email || null
+        email: email || null,
+        observacoes: 'Cliente cadastrado via agendamento rápido'
     };
     
-    // Enviar requisição
+    // Fazer requisição à API
     $.ajax({
         url: `${API_URL}/clientes`,
-        type: 'POST',
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
         contentType: 'application/json',
-        data: JSON.stringify(payload),
+        data: JSON.stringify(dadosCliente),
         success: function(response) {
+            console.log('Cliente salvo com sucesso:', response);
+            
             // Fechar modal
             $('#novoClienteModal').modal('hide');
             
-            // Recarregar select de clientes
-            loadClientesSelect();
+            // Limpar formulário
+            $('#form-cliente-rapido')[0].reset();
             
-            // Selecionar o novo cliente (com timeout para garantir que os dados foram carregados)
-            setTimeout(function() {
-                $(clienteSelect).val(response.id);
-                $(clienteSelect).trigger('change');
-            }, 500);
+            // Adicionar o novo cliente ao select e selecioná-lo
+            const clienteId = response.cliente.id;
+            const clienteNome = response.cliente.nome;
             
-            // Notificar usuário
-            mostrarNotificacao('Cliente cadastrado com sucesso!', 'success');
+            // Verificar se o cliente já existe no select
+            if ($(`#cliente-select option[value="${clienteId}"]`).length === 0) {
+                $('#cliente-select').append(`<option value="${clienteId}">${clienteNome}</option>`);
+            }
+            
+            // Selecionar o cliente
+            $('#cliente-select').val(clienteId);
+            
+            // Atualizar barbeiros disponíveis com base no novo cliente
+            const dataAgendamento = $('#data-agendamento').val();
+            const horaAgendamento = $('#hora-agendamento').val();
+            
+            if (dataAgendamento && horaAgendamento) {
+                loadBarbeirosDisponiveis(dataAgendamento, horaAgendamento);
+            }
+            
+            // Mostrar notificação de sucesso
+            mostrarNotificacao(response.mensagem || 'Cliente cadastrado com sucesso!', 'success');
         },
-        error: function(xhr) {
-            mostrarNotificacao('Erro ao cadastrar cliente: ' + (xhr.responseJSON?.erro || 'Erro desconhecido'), 'danger');
+        error: function(xhr, status, error) {
+            console.error('Erro ao salvar cliente:', xhr.responseText);
+            
+            // Verificar se é erro de autenticação
+            if (handleAuthError(xhr)) {
+                return;
+            }
+            
+            let mensagemErro = 'Erro ao cadastrar cliente.';
+            
+            try {
+                const resposta = JSON.parse(xhr.responseText);
+                if (resposta.erro) {
+                    mensagemErro = resposta.erro;
+                    
+                    // Detalhes adicionais
+                    if (resposta.detalhes) {
+                        const detalhes = Object.entries(resposta.detalhes)
+                            .map(([campo, erro]) => `${campo}: ${erro}`)
+                            .join(', ');
+                        
+                        mensagemErro += ` Detalhes: ${detalhes}`;
+                    }
+                }
+            } catch (e) {
+                // Se não conseguir parsear, usar mensagem genérica
+            }
+            
+            mostrarNotificacao(mensagemErro, 'error');
+        },
+        complete: function() {
+            // Resetar botão
+            $('#btn-salvar-cliente-rapido').prop('disabled', false);
+            $('#btn-salvar-cliente-rapido').html('Salvar');
         }
     });
 }

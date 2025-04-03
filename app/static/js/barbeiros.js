@@ -2,360 +2,657 @@
  * Funções para gerenciamento de barbeiros
  */
 
-// Carregar lista de barbeiros
-function loadBarbeiros() {
-    // Exibir loading
-    $('#barbeiros-list').html('<div class="text-center my-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>');
+// URL base da API
+const API_URL = '/api';
+
+// Inicializar a página de barbeiros
+$(document).ready(function() {
+    console.log('Página de barbeiros carregada');
     
-    // Fazer requisição AJAX
+    // Carregar lista de barbeiros
+    carregarBarbeiros();
+    
+    // Adicionar evento ao botão de novo barbeiro
+    $('#barbeiro-novo-btn, #barbeiro-novo-btn-empty').on('click', function() {
+        abrirModalBarbeiro();
+    });
+    
+    // Adicionar evento de busca
+    $('#barbeiro-busca-btn').on('click', function() {
+        buscarBarbeiros();
+    });
+    
+    $('#barbeiro-busca').on('keypress', function(e) {
+        if (e.which == 13) {
+            buscarBarbeiros();
+        }
+    });
+    
+    // Inicializar a data de disponibilidade como hoje
+    $('#disponibilidade-data').val(formatDate(new Date()));
+    $('#disponibilidade-data').on('change', function() {
+        carregarDisponibilidadeBarbeiros($(this).val());
+    });
+    
+    // Carregar dados iniciais
+    carregarDesempenhoBarbeiros();
+    carregarDisponibilidadeBarbeiros($('#disponibilidade-data').val());
+    carregarServicosPorBarbeiro();
+});
+
+// Formatar data para YYYY-MM-DD
+function formatDate(date) {
+    const d = new Date(date);
+    let month = '' + (d.getMonth() + 1);
+    let day = '' + d.getDate();
+    const year = d.getFullYear();
+    
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+    
+    return [year, month, day].join('-');
+}
+
+// Função para carregar lista de barbeiros
+function carregarBarbeiros() {
+    console.log('Carregando lista de barbeiros...');
+    
+    // Mostrar loading
+    $('#barbeiros-lista').html('');
+    $('#barbeiros-empty').addClass('d-none');
+    $('#barbeiros-loading').removeClass('d-none');
+    
+    // Fazer requisição à API (usando endpoint público)
     $.ajax({
-        url: '/api/barbeiros',
-        type: 'GET',
+        url: `${API_URL}/barbeiros/disponiveis`,
+        method: 'GET',
         success: function(response) {
-            if (response.barbeiros.length === 0) {
-                // Exibir mensagem de lista vazia
-                $('#barbeiros-list').html(`
-                    <div class="text-center my-5">
-                        <img src="/static/img/empty-list.svg" alt="Lista vazia" class="img-fluid mb-3" style="max-height: 150px;">
-                        <h5>Nenhum barbeiro cadastrado</h5>
-                        <p class="text-muted">Cadastre o primeiro barbeiro para começar</p>
-                        <button id="barbeiro-novo-btn-empty" class="btn btn-primary">
-                            <i class="fas fa-plus-circle me-2"></i> Novo Barbeiro
-                        </button>
-                    </div>
-                `);
-            } else {
+            console.log('Barbeiros carregados:', response);
+            
+            // Esconder loading
+            $('#barbeiros-loading').addClass('d-none');
+            
+            // Verificar se há barbeiros
+            if (response && response.length > 0) {
                 // Renderizar lista de barbeiros
                 let html = '';
-                response.barbeiros.forEach(barbeiro => {
-                    // Definir classe de status
-                    let statusClass = 'bg-success';
-                    let statusText = 'Ativo';
-                    
-                    if (barbeiro.status === 'inativo') {
-                        statusClass = 'bg-danger';
-                        statusText = 'Inativo';
-                    } else if (barbeiro.status === 'ferias') {
-                        statusClass = 'bg-warning';
-                        statusText = 'Em Férias';
-                    }
+                
+                response.forEach(barbeiro => {
+                    const bgColor = barbeiro.disponivel ? 'bg-success' : 'bg-danger';
+                    const statusText = barbeiro.disponivel ? 'Disponível' : 'Indisponível';
+                    const especialidades = barbeiro.especialidades && barbeiro.especialidades.length > 0 
+                        ? barbeiro.especialidades.join(', ') 
+                        : 'Sem especialidades';
                     
                     html += `
-                        <div class="col-md-4 mb-4">
+                        <div class="col-lg-4 col-md-6 mb-4">
                             <div class="card h-100 shadow-sm">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <span class="badge ${statusClass}">${statusText}</span>
+                                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                                    <span class="badge ${bgColor} text-white">${statusText}</span>
                                     <div class="dropdown">
-                                        <button class="btn btn-sm btn-light" type="button" data-bs-toggle="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary border-0" type="button" id="dropdownMenuButton${barbeiro.id}" data-bs-toggle="dropdown" aria-expanded="false">
                                             <i class="fas fa-ellipsis-v"></i>
                                         </button>
-                                        <ul class="dropdown-menu dropdown-menu-end">
-                                            <li><a class="dropdown-item" href="#" onclick="openModalBarbeiro(${barbeiro.id})"><i class="fas fa-edit me-2"></i> Editar</a></li>
-                                            <li><a class="dropdown-item" href="#" onclick="verDetalhesBarbeiro(${barbeiro.id})"><i class="fas fa-clipboard-list me-2"></i> Ver Detalhes</a></li>
+                                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton${barbeiro.id}">
+                                            <li><a class="dropdown-item" href="#" onclick="editarBarbeiro(${barbeiro.id})"><i class="fas fa-edit me-2"></i>Editar</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="toggleDisponibilidade(${barbeiro.id}, ${!barbeiro.disponivel})"><i class="fas fa-${barbeiro.disponivel ? 'times' : 'check'} me-2"></i>${barbeiro.disponivel ? 'Marcar como Indisponível' : 'Marcar como Disponível'}</a></li>
                                             <li><hr class="dropdown-divider"></li>
-                                            <li><a class="dropdown-item text-success" href="#" onclick="alterarStatusBarbeiro(${barbeiro.id}, 'ativo')"><i class="fas fa-check-circle me-2"></i> Marcar como Ativo</a></li>
-                                            <li><a class="dropdown-item text-warning" href="#" onclick="alterarStatusBarbeiro(${barbeiro.id}, 'ferias')"><i class="fas fa-umbrella-beach me-2"></i> Marcar como Férias</a></li>
-                                            <li><a class="dropdown-item text-danger" href="#" onclick="alterarStatusBarbeiro(${barbeiro.id}, 'inativo')"><i class="fas fa-times-circle me-2"></i> Marcar como Inativo</a></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="excluirBarbeiro(${barbeiro.id})"><i class="fas fa-trash me-2"></i>Excluir</a></li>
                                         </ul>
                                     </div>
                                 </div>
                                 <div class="card-body text-center">
-                                    <div class="mb-3">
-                                        <img src="${barbeiro.foto || '/static/img/avatar-placeholder.png'}" alt="${barbeiro.nome}" class="rounded-circle" width="80" height="80">
+                                    <div class="my-3">
+                                        <div class="barbeiro-avatar rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 80px; height: 80px;">
+                                            <i class="fas fa-user-tie fa-2x text-secondary"></i>
+                                        </div>
                                     </div>
-                                    <h5 class="card-title">${barbeiro.nome}</h5>
-                                    <p class="card-text text-muted">
-                                        <i class="fas fa-phone me-1"></i> ${barbeiro.telefone || 'Não informado'}<br>
-                                        <i class="fas fa-envelope me-1"></i> ${barbeiro.email || 'Não informado'}
-                                    </p>
+                                    <h5 class="card-title mb-1">${barbeiro.nome || 'Sem nome'}</h5>
+                                    <p class="text-muted small mb-2">${especialidades}</p>
+                                    <div class="d-flex justify-content-center text-muted small">
+                                        <div class="me-3">
+                                            <i class="fas fa-clock me-1"></i>${barbeiro.comissao_percentual}% comissão
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-calendar-alt me-1"></i>${barbeiro.agendamentos_hoje || 0} hoje
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="card-footer bg-transparent">
-                                    <div class="d-flex justify-content-between">
-                                        <small class="text-muted"><i class="fas fa-calendar-check me-1"></i> ${barbeiro.agendamentos_count || 0} atendimentos</small>
-                                        <small class="text-muted"><i class="fas fa-star me-1"></i> ${barbeiro.avaliacao || 'N/A'}</small>
-                                    </div>
+                                <div class="card-footer bg-transparent border-top-0 text-center">
+                                    <button class="btn btn-sm btn-primary" onclick="verAgendaBarbeiro(${barbeiro.id})">
+                                        <i class="fas fa-calendar me-1"></i>Ver Agenda
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     `;
                 });
                 
-                $('#barbeiros-list').html(`<div class="row">${html}</div>`);
+                $('#barbeiros-lista').html(html);
+            } else {
+                // Mostrar mensagem de lista vazia
+                $('#barbeiros-empty').removeClass('d-none');
             }
         },
-        error: function(xhr) {
-            $('#barbeiros-list').html(`
-                <div class="alert alert-danger" role="alert">
-                    Erro ao carregar barbeiros: ${xhr.responseJSON?.message || 'Erro desconhecido'}
-                </div>
-            `);
-        }
-    });
-    
-    // Carregar desempenho dos barbeiros
-    loadDesempenhoBarbeiros();
-}
-
-// Carregar desempenho dos barbeiros
-function loadDesempenhoBarbeiros(periodo = 30) {
-    // Exibir loading
-    $('#desempenho-barbeiros').html('<div class="text-center my-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>');
-    
-    // Fazer requisição AJAX
-    $.ajax({
-        url: `/api/barbeiros/desempenho?periodo=${periodo}`,
-        type: 'GET',
-        success: function(response) {
-            if (!response.desempenho || response.desempenho.length === 0) {
-                $('#desempenho-barbeiros').html(`
-                    <div class="alert alert-info" role="alert">
-                        Não há dados de desempenho disponíveis para o período selecionado.
-                    </div>
-                `);
-                return;
-            }
+        error: function(xhr, status, error) {
+            console.error('Erro ao carregar barbeiros:', xhr.responseText);
             
-            // Criar chart de desempenho
-            createDesempenhoChart(response.desempenho);
-        },
-        error: function(xhr) {
-            $('#desempenho-barbeiros').html(`
-                <div class="alert alert-danger" role="alert">
-                    Erro ao carregar desempenho: ${xhr.responseJSON?.message || 'Erro desconhecido'}
+            // Esconder loading
+            $('#barbeiros-loading').addClass('d-none');
+            
+            // Mostrar mensagem de erro
+            $('#barbeiros-lista').html(`
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Erro ao carregar barbeiros: ${xhr.status === 401 ? 'Você precisa estar autenticado' : 'Erro na conexão com o servidor'}
+                    </div>
                 </div>
             `);
         }
     });
 }
 
-// Criar gráfico de desempenho dos barbeiros
-function createDesempenhoChart(dados) {
-    // Preparar dados para o gráfico
-    const barbeiros = dados.map(item => item.nome);
-    const atendimentos = dados.map(item => item.total_atendimentos);
-    const faturamento = dados.map(item => item.faturamento);
+// Função para abrir modal de novo barbeiro
+function abrirModalBarbeiro(id = null) {
+    // Implementar abertura do modal para criar ou editar barbeiro
+    console.log('Abrir modal barbeiro, ID:', id);
+    alert('Funcionalidade em desenvolvimento: ' + (id ? 'Editar barbeiro #' + id : 'Novo barbeiro'));
+}
+
+// Função para editar barbeiro
+function editarBarbeiro(id) {
+    abrirModalBarbeiro(id);
+}
+
+// Função para alternar disponibilidade do barbeiro
+function toggleDisponibilidade(id, novoStatus) {
+    console.log('Alterando disponibilidade do barbeiro #' + id + ' para ' + novoStatus);
     
-    // Remover chart existente se houver
-    if (window.desempenhoChart) {
-        window.desempenhoChart.destroy();
+    if (!confirm('Tem certeza que deseja alterar a disponibilidade deste barbeiro?')) {
+        return;
     }
     
-    // Criar novo chart
-    const ctx = document.getElementById('chart-desempenho-barbeiros');
-    window.desempenhoChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: barbeiros,
-            datasets: [
-                {
-                    label: 'Atendimentos',
-                    data: atendimentos,
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Faturamento (R$)',
-                    data: faturamento,
-                    backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1,
-                    type: 'line',
-                    yAxisID: 'y1'
-                }
-            ]
+    // Obter token JWT
+    const token = localStorage.getItem('token');
+    
+    // Fazer requisição à API
+    $.ajax({
+        url: `${API_URL}/barbeiros/${id}`,
+        method: 'PUT',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
         },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Atendimentos'
-                    }
-                },
-                y1: {
-                    beginAtZero: true,
-                    position: 'right',
-                    title: {
-                        display: true,
-                        text: 'Faturamento (R$)'
-                    },
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                }
-            }
+        data: JSON.stringify({
+            disponivel: novoStatus
+        }),
+        success: function(response) {
+            console.log('Disponibilidade atualizada:', response);
+            mostrarNotificacao(
+                'Disponibilidade do barbeiro atualizada com sucesso!',
+                'success'
+            );
+            
+            // Recarregar lista de barbeiros
+            carregarBarbeiros();
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao atualizar disponibilidade:', xhr.responseText);
+            mostrarNotificacao(
+                'Erro ao atualizar disponibilidade do barbeiro.',
+                'error'
+            );
         }
-    });
-    
-    // Exibir dados no container
-    $('#desempenho-barbeiros').html(`
-        <div class="card shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Desempenho dos Barbeiros</h5>
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-sm btn-outline-primary periodo-btn ${periodo === 7 ? 'active' : ''}" data-periodo="7">7 dias</button>
-                    <button type="button" class="btn btn-sm btn-outline-primary periodo-btn ${periodo === 30 ? 'active' : ''}" data-periodo="30">30 dias</button>
-                    <button type="button" class="btn btn-sm btn-outline-primary periodo-btn ${periodo === 90 ? 'active' : ''}" data-periodo="90">90 dias</button>
-                </div>
-            </div>
-            <div class="card-body">
-                <canvas id="chart-desempenho-barbeiros"></canvas>
-            </div>
-        </div>
-    `);
-    
-    // Adicionar evento para botões de período
-    $('.periodo-btn').on('click', function() {
-        const novoPeriodo = $(this).data('periodo');
-        $('.periodo-btn').removeClass('active');
-        $(this).addClass('active');
-        loadDesempenhoBarbeiros(novoPeriodo);
     });
 }
 
-// Abrir modal para adicionar/editar barbeiro
-function openModalBarbeiro(id = null) {
-    // Limpar formulário
-    $('#form-barbeiro')[0].reset();
-    $('#form-barbeiro .alert').addClass('d-none');
-    $('#form-barbeiro .is-invalid').removeClass('is-invalid');
+// Função para excluir barbeiro
+function excluirBarbeiro(id) {
+    if (!confirm('Tem certeza que deseja excluir este barbeiro? Esta ação não pode ser desfeita.')) {
+        return;
+    }
     
-    // Definir título do modal
-    $('#modalBarbeiroTitle').text(id ? 'Editar Barbeiro' : 'Novo Barbeiro');
+    // Obter token JWT
+    const token = localStorage.getItem('token');
     
-    // Se for edição, carregar dados do barbeiro
-    if (id) {
-        // Mostrar loading
-        $('#modal-barbeiro-loading').removeClass('d-none');
-        $('#form-barbeiro-content').addClass('d-none');
-        
-        // Fazer requisição AJAX
-        $.ajax({
-            url: `/api/barbeiros/${id}`,
-            type: 'GET',
-            success: function(response) {
-                // Preencher formulário
-                $('#barbeiro-id').val(response.barbeiro.id);
-                $('#barbeiro-nome').val(response.barbeiro.nome);
-                $('#barbeiro-email').val(response.barbeiro.email);
-                $('#barbeiro-telefone').val(response.barbeiro.telefone);
-                $('#barbeiro-status').val(response.barbeiro.status);
+    // Fazer requisição à API
+    $.ajax({
+        url: `${API_URL}/barbeiros/${id}`,
+        method: 'DELETE',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        success: function(response) {
+            console.log('Barbeiro excluído:', response);
+            mostrarNotificacao(
+                'Barbeiro excluído com sucesso!',
+                'success'
+            );
+            
+            // Recarregar lista de barbeiros
+            carregarBarbeiros();
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao excluir barbeiro:', xhr.responseText);
+            
+            let mensagemErro = 'Erro ao excluir barbeiro.';
+            try {
+                const resposta = JSON.parse(xhr.responseText);
+                if (resposta.erro) {
+                    mensagemErro = resposta.erro;
+                }
+            } catch (e) {}
+            
+            mostrarNotificacao(mensagemErro, 'error');
+        }
+    });
+}
+
+// Função para ver agenda do barbeiro
+function verAgendaBarbeiro(id) {
+    // Redirecionar para a página de agenda com filtro por barbeiro
+    window.location.href = `/agenda?barbeiro=${id}`;
+}
+
+// Função para buscar barbeiros
+function buscarBarbeiros() {
+    const termoBusca = $('#barbeiro-busca').val().trim();
+    
+    if (!termoBusca) {
+        // Se a busca estiver vazia, carregar todos os barbeiros
+        carregarBarbeiros();
+        return;
+    }
+    
+    console.log('Buscando barbeiros:', termoBusca);
+    
+    // Mostrar loading
+    $('#barbeiros-lista').html('');
+    $('#barbeiros-empty').addClass('d-none');
+    $('#barbeiros-loading').removeClass('d-none');
+    
+    // Fazer requisição à API pública
+    $.ajax({
+        url: `${API_URL}/barbeiros/disponiveis?busca=${encodeURIComponent(termoBusca)}`,
+        method: 'GET',
+        success: function(response) {
+            // Processar resposta
+            console.log('Resultado da busca:', response);
+            
+            // Esconder loading
+            $('#barbeiros-loading').addClass('d-none');
+            
+            // Filtrar os resultados no cliente já que o endpoint não suporta busca
+            const resultadosFiltrados = response.filter(barbeiro => {
+                // Buscar no nome do barbeiro
+                if (barbeiro.nome && barbeiro.nome.toLowerCase().includes(termoBusca.toLowerCase())) {
+                    return true;
+                }
                 
-                // Exibir formulário
-                $('#modal-barbeiro-loading').addClass('d-none');
-                $('#form-barbeiro-content').removeClass('d-none');
+                // Buscar nas especialidades
+                if (barbeiro.especialidades && barbeiro.especialidades.some(esp => 
+                    esp.toLowerCase().includes(termoBusca.toLowerCase()))) {
+                    return true;
+                }
+                
+                return false;
+            });
+            
+            // Verificar se há resultados
+            if (resultadosFiltrados && resultadosFiltrados.length > 0) {
+                // Renderizar resultados (usando o mesmo formato da função carregarBarbeiros)
+                let html = '';
+                
+                resultadosFiltrados.forEach(barbeiro => {
+                    const bgColor = barbeiro.disponivel ? 'bg-success' : 'bg-danger';
+                    const statusText = barbeiro.disponivel ? 'Disponível' : 'Indisponível';
+                    const especialidades = barbeiro.especialidades && barbeiro.especialidades.length > 0 
+                        ? barbeiro.especialidades.join(', ') 
+                        : 'Sem especialidades';
+                    
+                    html += `
+                        <div class="col-lg-4 col-md-6 mb-4">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                                    <span class="badge ${bgColor} text-white">${statusText}</span>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary border-0" type="button" id="dropdownMenuButton${barbeiro.id}" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton${barbeiro.id}">
+                                            <li><a class="dropdown-item" href="#" onclick="editarBarbeiro(${barbeiro.id})"><i class="fas fa-edit me-2"></i>Editar</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="toggleDisponibilidade(${barbeiro.id}, ${!barbeiro.disponivel})"><i class="fas fa-${barbeiro.disponivel ? 'times' : 'check'} me-2"></i>${barbeiro.disponivel ? 'Marcar como Indisponível' : 'Marcar como Disponível'}</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="excluirBarbeiro(${barbeiro.id})"><i class="fas fa-trash me-2"></i>Excluir</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="card-body text-center">
+                                    <div class="my-3">
+                                        <div class="barbeiro-avatar rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 80px; height: 80px;">
+                                            <i class="fas fa-user-tie fa-2x text-secondary"></i>
+                                        </div>
+                                    </div>
+                                    <h5 class="card-title mb-1">${barbeiro.nome || 'Sem nome'}</h5>
+                                    <p class="text-muted small mb-2">${especialidades}</p>
+                                    <div class="d-flex justify-content-center text-muted small">
+                                        <div class="me-3">
+                                            <i class="fas fa-clock me-1"></i>${barbeiro.comissao_percentual}% comissão
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-calendar-alt me-1"></i>${barbeiro.agendamentos_hoje || 0} hoje
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent border-top-0 text-center">
+                                    <button class="btn btn-sm btn-primary" onclick="verAgendaBarbeiro(${barbeiro.id})">
+                                        <i class="fas fa-calendar me-1"></i>Ver Agenda
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                $('#barbeiros-lista').html(html);
+                
+                // Mostrar mensagem informativa sobre a busca
+                mostrarNotificacao(`Foram encontrados ${resultadosFiltrados.length} barbeiros para "${termoBusca}"`, 'info');
+            } else {
+                // Mostrar mensagem de nenhum resultado
+                $('#barbeiros-lista').html(`
+                    <div class="col-12 text-center py-5">
+                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                        <h5>Nenhum barbeiro encontrado</h5>
+                        <p class="text-muted">Sua busca por "${termoBusca}" não retornou resultados.</p>
+                        <button class="btn btn-primary" onclick="carregarBarbeiros()">
+                            <i class="fas fa-sync-alt me-2"></i>Mostrar Todos
+                        </button>
+                    </div>
+                `);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro na busca de barbeiros:', xhr.responseText);
+            
+            // Esconder loading
+            $('#barbeiros-loading').addClass('d-none');
+            
+            // Mostrar mensagem de erro
+            $('#barbeiros-lista').html(`
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Erro ao buscar barbeiros: Erro na conexão com o servidor
+                    </div>
+                </div>
+            `);
+        }
+    });
+}
+
+// Função para carregar desempenho dos barbeiros
+function carregarDesempenhoBarbeiros() {
+    console.log('Carregando desempenho dos barbeiros...');
+    
+    // Simular dados para manter simples neste exemplo
+    const dados = [
+        { barbeiro: 'Carlos Silva', atendimentos: 32, avaliacao: 4.8, faturamento: 1760.00 },
+        { barbeiro: 'João Barbosa', atendimentos: 28, avaliacao: 4.5, faturamento: 1540.00 },
+        { barbeiro: 'Marcos Oliveira', atendimentos: 22, avaliacao: 4.7, faturamento: 1210.00 }
+    ];
+    
+    // Preencher tabela de desempenho
+    let html = '';
+    
+    dados.forEach(item => {
+        // Gerar estrelas para avaliação
+        let estrelas = '';
+        for (let i = 0; i < 5; i++) {
+            if (i < Math.floor(item.avaliacao)) {
+                estrelas += '<i class="fas fa-star text-warning"></i>';
+            } else if (i < item.avaliacao) {
+                estrelas += '<i class="fas fa-star-half-alt text-warning"></i>';
+            } else {
+                estrelas += '<i class="far fa-star text-warning"></i>';
+            }
+        }
+        
+        html += `
+            <tr>
+                <td>${item.barbeiro}</td>
+                <td>${item.atendimentos}</td>
+                <td>${estrelas} <span class="small text-muted">(${item.avaliacao})</span></td>
+                <td>R$ ${item.faturamento.toFixed(2)}</td>
+            </tr>
+        `;
+    });
+    
+    $('#barbeiros-desempenho').html(html);
+}
+
+// Função para carregar disponibilidade dos barbeiros
+function carregarDisponibilidadeBarbeiros(data) {
+    console.log('Carregando disponibilidade dos barbeiros para a data:', data);
+    
+    // Implementar lógica para mostrar uma timeline de disponibilidade
+    // Exemplo: Mostrar disponibilidade em intervalos de 1 hora das 8h às 20h
+    
+    const horasDisponiveis = [
+        { hora: '08:00', barbeiros: ['Carlos Silva', 'João Barbosa'] },
+        { hora: '09:00', barbeiros: ['Carlos Silva', 'João Barbosa', 'Marcos Oliveira'] },
+        { hora: '10:00', barbeiros: ['João Barbosa', 'Marcos Oliveira'] },
+        { hora: '11:00', barbeiros: ['Carlos Silva', 'Marcos Oliveira'] },
+        { hora: '12:00', barbeiros: [] }, // Almoço
+        { hora: '13:00', barbeiros: [] }, // Almoço
+        { hora: '14:00', barbeiros: ['Carlos Silva', 'João Barbosa', 'Marcos Oliveira'] },
+        { hora: '15:00', barbeiros: ['Carlos Silva', 'João Barbosa', 'Marcos Oliveira'] },
+        { hora: '16:00', barbeiros: ['Carlos Silva', 'João Barbosa'] },
+        { hora: '17:00', barbeiros: ['Carlos Silva', 'Marcos Oliveira'] },
+        { hora: '18:00', barbeiros: ['João Barbosa', 'Marcos Oliveira'] },
+        { hora: '19:00', barbeiros: ['João Barbosa'] }
+    ];
+    
+    let html = '<div class="disponibilidade-grid">';
+    
+    horasDisponiveis.forEach(slot => {
+        const numDisponiveis = slot.barbeiros.length;
+        let classeDisponibilidade = 'disponibilidade-nenhum';
+        
+        if (numDisponiveis > 0) {
+            classeDisponibilidade = numDisponiveis === 1 ? 'disponibilidade-baixo' :
+                                   numDisponiveis === 2 ? 'disponibilidade-medio' :
+                                                         'disponibilidade-alto';
+        }
+        
+        html += `
+            <div class="disponibilidade-slot">
+                <span class="disponibilidade-hora">${slot.hora}</span>
+                <div class="disponibilidade-barra ${classeDisponibilidade}" 
+                     data-bs-toggle="tooltip" 
+                     title="${numDisponiveis} barbeiro(s) disponível(is): ${slot.barbeiros.join(', ')}">
+                    <span class="disponibilidade-contador">${numDisponiveis}</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    
+    $('#disponibilidade-timeline').html(html);
+    
+    // Inicializar tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+}
+
+// Função para carregar gráfico de serviços por barbeiro
+function carregarServicosPorBarbeiro() {
+    console.log('Carregando gráfico de serviços por barbeiro...');
+    
+    // Simular dados
+    const dados = {
+        labels: ['Carlos Silva', 'João Barbosa', 'Marcos Oliveira'],
+        datasets: [
+            {
+                label: 'Corte de cabelo',
+                backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                data: [65, 59, 70]
             },
-            error: function(xhr) {
-                // Mostrar erro
-                $('#modal-barbeiro-loading').addClass('d-none');
-                $('#form-barbeiro-content').removeClass('d-none');
-                $('#form-barbeiro .alert-danger').text(`Erro ao carregar barbeiro: ${xhr.responseJSON?.message || 'Erro desconhecido'}`).removeClass('d-none');
+            {
+                label: 'Barba',
+                backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                data: [40, 45, 30]
+            },
+            {
+                label: 'Pigmentação',
+                backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                data: [15, 20, 10]
+            },
+            {
+                label: 'Outros',
+                backgroundColor: 'rgba(255, 205, 86, 0.8)',
+                data: [20, 15, 25]
+            }
+        ]
+    };
+    
+    // Criar gráfico se existe canvas
+    const ctx = document.getElementById('servicos-barbeiro-chart');
+    
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'bar',
+            data: dados,
+            options: {
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Serviços Realizados por Barbeiro (Últimos 30 dias)'
+                    },
+                },
+                responsive: true,
+                scales: {
+                    x: {
+                        stacked: true,
+                    },
+                    y: {
+                        stacked: true
+                    }
+                }
             }
         });
     }
-    
-    // Abrir modal
-    const modal = new bootstrap.Modal(document.getElementById('modalBarbeiro'));
-    modal.show();
 }
 
-// Salvar barbeiro
-function salvarBarbeiro() {
-    // Validar formulário
-    if (!validarFormulario('#form-barbeiro')) {
+// Função para mostrar notificações
+function mostrarNotificacao(mensagem, tipo) {
+    // Verificar se a função existe no escopo global (pode estar em outro arquivo)
+    if (typeof window.mostrarNotificacao === 'function') {
+        window.mostrarNotificacao(mensagem, tipo);
         return;
     }
     
-    // Desabilitar botão de salvar
-    $('#btn-salvar-barbeiro').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...');
+    // Implementação alternativa se a função global não existir
+    console.log(`Notificação (${tipo}): ${mensagem}`);
     
-    // Pegar ID (se for edição)
-    const id = $('#barbeiro-id').val();
+    // Criar elemento toast
+    const toastId = 'toast-' + Date.now();
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center border-0 fade" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body ${tipo === 'error' ? 'bg-danger text-white' : tipo === 'success' ? 'bg-success text-white' : tipo === 'warning' ? 'bg-warning' : 'bg-info text-white'}">
+                    ${mensagem}
+                </div>
+                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+            </div>
+        </div>
+    `;
     
-    // Preparar dados
-    const dados = {
-        nome: $('#barbeiro-nome').val(),
-        email: $('#barbeiro-email').val(),
-        telefone: $('#barbeiro-telefone').val(),
-        status: $('#barbeiro-status').val()
-    };
+    // Adicionar ao container de toasts (criar se não existir)
+    let toastContainer = document.getElementById('toast-container');
     
-    // Definir método e URL
-    const metodo = id ? 'PUT' : 'POST';
-    const url = id ? `/api/barbeiros/${id}` : '/api/barbeiros';
-    
-    // Fazer requisição AJAX
-    $.ajax({
-        url: url,
-        type: metodo,
-        data: JSON.stringify(dados),
-        contentType: 'application/json',
-        success: function(response) {
-            // Fechar modal
-            bootstrap.Modal.getInstance(document.getElementById('modalBarbeiro')).hide();
-            
-            // Exibir mensagem de sucesso
-            showAlert('success', response.message || 'Barbeiro salvo com sucesso!');
-            
-            // Recarregar lista de barbeiros
-            loadBarbeiros();
-        },
-        error: function(xhr) {
-            // Mostrar erro
-            $('#form-barbeiro .alert-danger').text(xhr.responseJSON?.message || 'Erro ao salvar barbeiro').removeClass('d-none');
-            
-            // Habilitar botão de salvar
-            $('#btn-salvar-barbeiro').prop('disabled', false).text('Salvar');
-        },
-        complete: function() {
-            // Habilitar botão de salvar
-            $('#btn-salvar-barbeiro').prop('disabled', false).text('Salvar');
-        }
-    });
-}
-
-// Alterar status do barbeiro
-function alterarStatusBarbeiro(id, novoStatus) {
-    // Confirmar alteração
-    if (!confirm(`Deseja realmente alterar o status deste barbeiro para ${novoStatus}?`)) {
-        return;
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
     }
     
-    // Fazer requisição AJAX
-    $.ajax({
-        url: `/api/barbeiros/${id}/status`,
-        type: 'PUT',
-        data: JSON.stringify({ status: novoStatus }),
-        contentType: 'application/json',
-        success: function(response) {
-            // Exibir mensagem de sucesso
-            showAlert('success', response.message || 'Status alterado com sucesso!');
-            
-            // Recarregar lista de barbeiros
-            loadBarbeiros();
-        },
-        error: function(xhr) {
-            // Mostrar erro
-            showAlert('danger', xhr.responseJSON?.message || 'Erro ao alterar status do barbeiro');
-        }
-    });
-}
-
-// Ver detalhes do barbeiro
-function verDetalhesBarbeiro(id) {
-    alert('Funcionalidade em desenvolvimento: Ver detalhes do barbeiro ' + id);
-}
-
-// Eventos
-$(document).ready(function() {
-    // Evento para salvar barbeiro
-    $('#btn-salvar-barbeiro').on('click', function() {
-        salvarBarbeiro();
-    });
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
     
-    // Máscara para telefone
-    $('#barbeiro-telefone').mask('(00) 00000-0000');
-}); 
+    // Mostrar toast
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+    toast.show();
+    
+    // Remover após fechado
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+}
+
+// Adicionar CSS necessário
+document.head.insertAdjacentHTML('beforeend', `
+<style>
+    .disponibilidade-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+    }
+    
+    .disponibilidade-slot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .disponibilidade-hora {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 5px;
+    }
+    
+    .disponibilidade-barra {
+        width: 100%;
+        height: 30px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .disponibilidade-nenhum {
+        background-color: #f8f9fa;
+        border: 1px dashed #dee2e6;
+        color: #adb5bd;
+    }
+    
+    .disponibilidade-baixo {
+        background-color: #dc3545;
+    }
+    
+    .disponibilidade-medio {
+        background-color: #ffc107;
+        color: #212529;
+    }
+    
+    .disponibilidade-alto {
+        background-color: #28a745;
+    }
+    
+    .disponibilidade-contador {
+        font-size: 0.9rem;
+    }
+    
+    .barbeiro-avatar {
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover .barbeiro-avatar {
+        transform: scale(1.05);
+    }
+</style>
+`); 

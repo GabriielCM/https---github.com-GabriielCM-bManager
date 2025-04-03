@@ -336,127 +336,146 @@ def verificar_disponibilidade():
     # Parâmetros
     barbeiro_id = request.args.get('barbeiro_id')
     data = request.args.get('data')
+    duracao = request.args.get('duracao', type=int, default=30)  # Duração em minutos
     
+    # Validar parâmetros
     if not barbeiro_id or not data:
-        return jsonify({"erro": "Parâmetros barbeiro_id e data são obrigatórios"}), 400
+        return jsonify({"erro": "É necessário informar barbeiro_id e data"}), 400
     
-    # Converter data para datetime
     try:
-        data_datetime = datetime.fromisoformat(data.split('T')[0])
-        data_inicio = data_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
-        data_fim = data_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
+        data_obj = datetime.fromisoformat(data.replace('Z', '+00:00'))
     except ValueError:
-        return jsonify({"erro": "Formato de data inválido. Use ISO 8601 (YYYY-MM-DD)"}), 400
+        return jsonify({"erro": "Formato de data inválido. Use o formato ISO (YYYY-MM-DDTHH:MM:SS)"}), 400
     
-    # Verificar se o barbeiro existe e está disponível
+    # Verificar se o barbeiro existe
     barbeiro = Barbeiro.query.get(barbeiro_id)
     if not barbeiro:
         return jsonify({"erro": "Barbeiro não encontrado"}), 404
     
+    # Verificar se o barbeiro está disponível
     if not barbeiro.disponivel:
         return jsonify({
             "disponivel": False,
-            "horarios_disponiveis": [],
             "mensagem": "Barbeiro não está disponível para agendamentos"
         }), 200
     
-    # Obter todos os agendamentos do barbeiro na data
+    # Obter todos os agendamentos do dia para o barbeiro
+    inicio_dia = data_obj.replace(hour=0, minute=0, second=0, microsecond=0)
+    fim_dia = inicio_dia + timedelta(days=1) - timedelta(microseconds=1)
+    
     agendamentos = Agendamento.query.filter(
         Agendamento.barbeiro_id == barbeiro_id,
-        Agendamento.data_hora_inicio >= data_inicio,
-        Agendamento.data_hora_inicio <= data_fim,
-        Agendamento.status != 'cancelado'
+        Agendamento.status.in_(['pendente', 'confirmado', 'em_andamento']),
+        Agendamento.data_hora_inicio >= inicio_dia,
+        Agendamento.data_hora_inicio <= fim_dia
     ).order_by(Agendamento.data_hora_inicio).all()
     
-    # Horário de funcionamento (exemplo: 8h às 18h)
-    hora_inicio_funcionamento = 8
-    hora_fim_funcionamento = 18
+    # Calcular a data de término do agendamento proposto
+    fim_agendamento = data_obj + timedelta(minutes=duracao)
     
-    # Duração média de um serviço em minutos
-    duracao_padrao = 30
+    # Verificar se há conflito com algum agendamento existente
+    for agendamento in agendamentos:
+        # Verificar sobreposição de horários
+        if (data_obj < agendamento.data_hora_fim and fim_agendamento > agendamento.data_hora_inicio):
+            return jsonify({
+                "disponivel": False,
+                "mensagem": "Horário não disponível, conflito com agendamento existente",
+                "conflito": {
+                    "agendamento_id": agendamento.id,
+                    "inicio": agendamento.data_hora_inicio.isoformat(),
+                    "fim": agendamento.data_hora_fim.isoformat(),
+                    "cliente": agendamento.cliente.nome if agendamento.cliente else "Cliente não especificado"
+                }
+            }), 200
     
-    # Gerar horários disponíveis
+    # Verificar horário de funcionamento (assumindo 9h às 18h)
+    hora = data_obj.hour
+    if hora < 9 or hora >= 18:
+        return jsonify({
+            "disponivel": False,
+            "mensagem": "Horário fora do expediente (9h às 18h)"
+        }), 200
+    
+    # Verificar se é fim de semana (0 = Segunda, 6 = Domingo)
+    dia_semana = data_obj.weekday()
+    if dia_semana >= 5:  # Sábado ou Domingo
+        return jsonify({
+            "disponivel": False,
+            "mensagem": f"Estabelecimento não funciona aos {'domingos' if dia_semana == 6 else 'sábados'}"
+        }), 200
+    
+    # Se chegou até aqui, o horário está disponível
+    # Calcular próximos horários disponíveis
     horarios_disponiveis = []
-    horario_atual = data_inicio.replace(hour=hora_inicio_funcionamento, minute=0, second=0, microsecond=0)
-    horario_fim = data_inicio.replace(hour=hora_fim_funcionamento, minute=0, second=0, microsecond=0)
+    horario_atual = inicio_dia.replace(hour=9, minute=0)  # Começa às 9h
     
-    while horario_atual < horario_fim:
-        # Verificar se o horário está disponível
-        horario_fim_servico = horario_atual + timedelta(minutes=duracao_padrao)
+    while horario_atual.hour < 18:  # Até as 18h
+        # Verificar se o horário atual está disponível
+        horario_fim = horario_atual + timedelta(minutes=duracao)
         disponivel = True
         
         for agendamento in agendamentos:
-            # Verificar se há sobreposição com algum agendamento existente
-            if (horario_atual >= agendamento.data_hora_inicio and horario_atual < agendamento.data_hora_fim) or \
-               (horario_fim_servico > agendamento.data_hora_inicio and horario_fim_servico <= agendamento.data_hora_fim) or \
-               (horario_atual <= agendamento.data_hora_inicio and horario_fim_servico >= agendamento.data_hora_fim):
+            if (horario_atual < agendamento.data_hora_fim and horario_fim > agendamento.data_hora_inicio):
                 disponivel = False
                 break
+        
+        # Se o horário já passou, não é disponível
+        if horario_atual < datetime.now():
+            disponivel = False
         
         if disponivel:
             horarios_disponiveis.append(horario_atual.isoformat())
         
-        # Avançar para o próximo horário (incrementos de 30min)
+        # Avançar 30 minutos
         horario_atual += timedelta(minutes=30)
     
     return jsonify({
-        "disponivel": len(horarios_disponiveis) > 0,
-        "horarios_disponiveis": horarios_disponiveis
+        "disponivel": True,
+        "mensagem": "Horário disponível",
+        "proximos_horarios": horarios_disponiveis[:5]  # Retornar apenas os próximos 5 horários disponíveis
     }), 200
 
 @agendamentos_bp.route('/<int:id>/concluir', methods=['POST'])
 @jwt_required()
 def concluir_agendamento(id):
+    # Verificar permissões (apenas barbeiro do agendamento ou admin)
+    jwt_data = get_jwt()
+    perfil = jwt_data.get('perfil')
+    usuario_id = get_jwt_identity()
+    
+    if perfil not in ['admin', 'barbeiro']:
+        return jsonify({"erro": "Permissão negada. Apenas administradores ou barbeiros podem concluir agendamentos."}), 403
+    
+    # Buscar agendamento
     agendamento = Agendamento.query.get(id)
     
     if not agendamento:
         return jsonify({"erro": "Agendamento não encontrado"}), 404
     
-    # Verificar se o agendamento já foi concluído ou cancelado
-    if agendamento.status == 'concluido':
-        return jsonify({"erro": "Agendamento já foi concluído"}), 400
+    # Verificar se barbeiro tem permissão para este agendamento
+    if perfil == 'barbeiro':
+        barbeiro = Barbeiro.query.filter_by(usuario_id=usuario_id).first()
+        if not barbeiro or barbeiro.id != agendamento.barbeiro_id:
+            return jsonify({"erro": "Você não tem permissão para concluir este agendamento"}), 403
     
+    # Verificar se agendamento pode ser concluído
     if agendamento.status == 'cancelado':
         return jsonify({"erro": "Não é possível concluir um agendamento cancelado"}), 400
     
-    # Verificar permissão (apenas admin ou barbeiro responsável)
-    jwt_data = get_jwt()
-    perfil = jwt_data.get('perfil')
-    usuario_id = get_jwt_identity()
+    if agendamento.status == 'concluido':
+        return jsonify({"mensagem": "Agendamento já está concluído"}), 200
     
-    if perfil == 'admin':
-        # Admin tem acesso a todos os agendamentos
-        pass
-    elif perfil == 'barbeiro':
-        barbeiro = Barbeiro.query.filter_by(usuario_id=usuario_id).first()
-        if not barbeiro or barbeiro.id != agendamento.barbeiro_id:
-            return jsonify({"erro": "Acesso negado"}), 403
-    else:
-        return jsonify({"erro": "Apenas administradores ou barbeiros podem concluir agendamentos"}), 403
-    
-    # Obter observações, se houver
-    observacoes = request.json.get('observacoes')
-    
-    # Atualizar agendamento
+    # Atualizar status do agendamento
     agendamento.status = 'concluido'
-    if observacoes:
-        if agendamento.observacoes:
-            agendamento.observacoes += f"\n[Conclusão] {observacoes}"
-        else:
-            agendamento.observacoes = f"[Conclusão] {observacoes}"
-    
     db.session.commit()
     
-    # Verificar se há um atendimento associado
+    # Registrar atendimento se ainda não existir
     from app.models.atendimento import Atendimento
-    atendimento = Atendimento.query.filter_by(agendamento_id=agendamento.id).first()
     
-    # Se não houver atendimento, criar um
+    atendimento = Atendimento.query.filter_by(agendamento_id=agendamento.id).first()
     if not atendimento:
-        from app.models.pagamento import Pagamento
-        
-        # Calcular valor total do atendimento
-        valor_total = sum(servico.servico.preco for servico in agendamento.servicos)
+        # Calcular valor total
+        valor_total = sum([servico.servico.preco for servico in agendamento.servicos])
         
         # Criar atendimento
         atendimento = Atendimento(
@@ -464,89 +483,71 @@ def concluir_agendamento(id):
             cliente_id=agendamento.cliente_id,
             barbeiro_id=agendamento.barbeiro_id,
             valor_total=valor_total,
-            data_hora=agendamento.data_hora_inicio,
-            observacoes=f"Atendimento baseado no agendamento #{agendamento.id}"
+            data_hora=datetime.now(),
+            status='pago'  # Assumindo pagamento imediato ao concluir
         )
         db.session.add(atendimento)
         db.session.commit()
-        
-        # Verificar se existe um caixa aberto para registrar o pagamento
-        from app.models.caixa_diario import CaixaDiario
-        caixa_aberto = CaixaDiario.query.filter_by(status='aberto').first()
-        
-        # Se houver um caixa aberto, criar um pagamento associado
-        if caixa_aberto and 'forma_pagamento' in request.json:
-            pagamento = Pagamento(
-                tipo='pagamento',
-                valor=valor_total,
-                forma_pagamento=request.json.get('forma_pagamento', 'dinheiro'),
-                status='confirmado',
-                descricao=f"Pagamento do atendimento #{atendimento.id}",
-                atendimento_id=atendimento.id,
-                caixa_diario_id=caixa_aberto.id
-            )
-            db.session.add(pagamento)
-            db.session.commit()
     
     return jsonify({
         "mensagem": "Agendamento concluído com sucesso",
-        "agendamento": agendamento.to_dict()
+        "agendamento": agendamento.to_dict(),
+        "atendimento": atendimento.to_dict() if atendimento else None
     }), 200
 
 @agendamentos_bp.route('/<int:id>/cancelar', methods=['POST'])
 @jwt_required()
 def cancelar_agendamento(id):
+    # Verificar permissões (cliente do agendamento, barbeiro do agendamento ou admin)
+    jwt_data = get_jwt()
+    perfil = jwt_data.get('perfil')
+    usuario_id = get_jwt_identity()
+    
+    # Buscar agendamento
     agendamento = Agendamento.query.get(id)
     
     if not agendamento:
         return jsonify({"erro": "Agendamento não encontrado"}), 404
     
-    # Verificar se o agendamento já foi concluído ou cancelado
+    # Verificar permissões específicas
+    tem_permissao = False
+    
+    if perfil == 'admin':
+        tem_permissao = True
+    elif perfil == 'barbeiro':
+        barbeiro = Barbeiro.query.filter_by(usuario_id=usuario_id).first()
+        tem_permissao = barbeiro and barbeiro.id == agendamento.barbeiro_id
+    elif perfil == 'cliente':
+        # Verificar se o cliente pertence ao usuário
+        cliente = Cliente.query.filter_by(id=agendamento.cliente_id).first()
+        usuario = Usuario.query.get(usuario_id)
+        tem_permissao = cliente and usuario and cliente.email == usuario.email
+    
+    if not tem_permissao:
+        return jsonify({"erro": "Você não tem permissão para cancelar este agendamento"}), 403
+    
+    # Verificar se agendamento pode ser cancelado
     if agendamento.status == 'cancelado':
-        return jsonify({"erro": "Agendamento já foi cancelado"}), 400
+        return jsonify({"mensagem": "Agendamento já está cancelado"}), 200
     
     if agendamento.status == 'concluido':
         return jsonify({"erro": "Não é possível cancelar um agendamento concluído"}), 400
     
-    # Verificar permissão
-    jwt_data = get_jwt()
-    perfil = jwt_data.get('perfil')
-    usuario_id = get_jwt_identity()
+    # Verificar se o agendamento está prestes a acontecer (menos de 1 hora)
+    if agendamento.data_hora_inicio <= datetime.now() + timedelta(hours=1):
+        # Apenas admin pode cancelar agendamentos próximos
+        if perfil != 'admin':
+            return jsonify({
+                "erro": "Não é possível cancelar agendamentos com menos de 1 hora de antecedência. Entre em contato com o estabelecimento."
+            }), 400
     
-    if perfil == 'admin':
-        # Admin tem acesso a todos os agendamentos
-        pass
-    elif perfil == 'barbeiro':
-        barbeiro = Barbeiro.query.filter_by(usuario_id=usuario_id).first()
-        if not barbeiro or barbeiro.id != agendamento.barbeiro_id:
-            return jsonify({"erro": "Acesso negado"}), 403
-    elif perfil == 'cliente':
-        # Verificar se o agendamento pertence ao cliente
-        usuario = Usuario.query.get(usuario_id)
-        if not usuario or not usuario.email:
-            return jsonify({"erro": "Acesso negado"}), 403
-        
-        cliente = Cliente.query.filter_by(email=usuario.email).first()
-        if not cliente or cliente.id != agendamento.cliente_id:
-            return jsonify({"erro": "Acesso negado"}), 403
-        
-        # Verificar regra de cancelamento (por exemplo, cliente só pode cancelar com 24h de antecedência)
-        now = datetime.now()
-        if (agendamento.data_hora_inicio - now).total_seconds() < 24 * 3600:
-            return jsonify({"erro": "Cancelamentos devem ser feitos com pelo menos 24 horas de antecedência"}), 400
-    else:
-        return jsonify({"erro": "Permissão negada"}), 403
+    # Obter motivo do cancelamento (opcional)
+    data = request.json or {}
+    motivo = data.get('motivo', 'Não informado')
     
-    # Obter motivo do cancelamento
-    motivo = request.json.get('motivo', 'Não informado')
-    
-    # Atualizar agendamento
+    # Atualizar status do agendamento
     agendamento.status = 'cancelado'
-    if agendamento.observacoes:
-        agendamento.observacoes += f"\n[Cancelamento] {motivo}"
-    else:
-        agendamento.observacoes = f"[Cancelamento] {motivo}"
-    
+    agendamento.observacoes = f"{agendamento.observacoes or ''}\nCancelamento: {motivo}".strip()
     db.session.commit()
     
     return jsonify({
