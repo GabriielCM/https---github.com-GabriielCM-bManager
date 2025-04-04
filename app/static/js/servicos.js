@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Destacar item no menu
     highlightMenuItem('servicos-link');
     
+    // Carregar categorias customizadas no select
+    carregarCategoriasCustomizadas();
+    
     // Carregar serviços
     carregarServicos();
     
@@ -260,6 +263,17 @@ function renderizarCategorias(servicos) {
  * Esta função é uma adaptação temporária enquanto o campo categoria não está disponível no modelo
  */
 function inferirCategoria(nome) {
+    // Primeiro, verificar se o nome já está no formato "Categoria: Nome"
+    const todasCategorias = ["Cabelo", "Barba", "Combo", "Tratamento", "Outros", ...obterCategoriasCustomizadas()];
+    
+    for (const cat of todasCategorias) {
+        const prefixo = `${cat}: `;
+        if (nome.startsWith(prefixo)) {
+            return cat; // Retorna a categoria extraída diretamente do nome
+        }
+    }
+    
+    // Se não estiver no formato padrão, inferir baseado em palavras-chave
     nome = nome.toLowerCase();
     
     if (nome.includes('cabelo') || nome.includes('corte') || nome.includes('penteado')) {
@@ -366,16 +380,25 @@ function salvarServico() {
         }
     }
     
-    // Incorporar a categoria no nome para persistência (já que não temos campo categoria no backend)
-    let nomeFormatado = nome;
-    if (categoria && categoria !== "Outros") {
-        // Se o nome já inclui a categoria, não adicionar novamente
-        const categorias = ["Cabelo", "Barba", "Combo", "Tratamento", ...obterCategoriasCustomizadas()];
-        const temCategoria = categorias.some(cat => nome.toLowerCase().includes(cat.toLowerCase()));
-        
-        if (!temCategoria) {
-            nomeFormatado = `${categoria}: ${nome}`;
+    // Extrair o nome puro (sem a categoria anterior)
+    let nomePuro = nome;
+    
+    // Lista de todas as categorias possíveis (padrão + customizadas)
+    const todasCategorias = ["Cabelo", "Barba", "Combo", "Tratamento", "Outros", ...obterCategoriasCustomizadas()];
+    
+    // Verificar se o nome já contém uma categoria no formato "Categoria: Nome"
+    for (const cat of todasCategorias) {
+        const prefixo = `${cat}: `;
+        if (nome.startsWith(prefixo)) {
+            nomePuro = nome.substring(prefixo.length);
+            break;
         }
+    }
+    
+    // Incorporar a nova categoria no nome para persistência (já que não temos campo categoria no backend)
+    let nomeFormatado = nomePuro;
+    if (categoria && categoria !== "Outros") {
+        nomeFormatado = `${categoria}: ${nomePuro}`;
     }
     
     // Preparar dados (apenas os campos que existem no modelo)
@@ -659,4 +682,35 @@ function armazenarServicosCache(servicos) {
 function obterServicosCache() {
     const servicos = localStorage.getItem('servicos_cache');
     return servicos ? JSON.parse(servicos) : null;
+}
+
+/**
+ * Carrega as categorias customizadas do localStorage para o select
+ */
+function carregarCategoriasCustomizadas() {
+    const select = document.getElementById('servico-categoria');
+    const categoriasCustomizadas = obterCategoriasCustomizadas();
+    
+    if (!categoriasCustomizadas.length) return;
+    
+    // Posição para inserir (antes de "Outros")
+    const outrosIndex = Array.from(select.options).findIndex(o => o.value === "Outros");
+    
+    // Adicionar cada categoria customizada ao select
+    categoriasCustomizadas.forEach(categoria => {
+        // Verificar se a categoria já existe no select
+        const categoriaExiste = Array.from(select.options).some(o => o.value === categoria);
+        
+        if (!categoriaExiste) {
+            const option = document.createElement('option');
+            option.value = categoria;
+            option.textContent = categoria;
+            
+            if (outrosIndex > -1) {
+                select.insertBefore(option, select.options[outrosIndex]);
+            } else {
+                select.appendChild(option);
+            }
+        }
+    });
 } 
