@@ -5,16 +5,24 @@ from datetime import datetime
 class Agendamento(Base):
     __tablename__ = 'agendamentos'
     
-    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
-    barbeiro_id = db.Column(db.Integer, db.ForeignKey('barbeiros.id'), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False, index=True)
+    barbeiro_id = db.Column(db.Integer, db.ForeignKey('barbeiros.id'), nullable=False, index=True)
     data_hora_inicio = db.Column(db.DateTime, nullable=False)
     data_hora_fim = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.String(20), default='pendente', nullable=False)
+    status = db.Column(db.String(20), default='pendente', nullable=False, index=True)
     observacoes = db.Column(db.Text, nullable=True)
     
     # Relacionamentos
     servicos = db.relationship('AgendamentoServico', backref='agendamento', lazy=True, cascade='all, delete-orphan')
     atendimento = db.relationship('Atendimento', backref='agendamento', uselist=False, lazy=True)
+    
+    # Validador para o status
+    @db.validates('status')
+    def validate_status(self, key, value):
+        estados_validos = ['pendente', 'confirmado', 'em_andamento', 'concluido', 'cancelado']
+        if value not in estados_validos:
+            raise ValueError(f"Status '{value}' inválido. Status permitidos: {', '.join(estados_validos)}")
+        return value
     
     def to_dict(self):
         return {
@@ -67,8 +75,8 @@ class Agendamento(Base):
 class AgendamentoServico(Base):
     __tablename__ = 'agendamento_servicos'
     
-    agendamento_id = db.Column(db.Integer, db.ForeignKey('agendamentos.id'), nullable=False)
-    servico_id = db.Column(db.Integer, db.ForeignKey('servicos.id'), nullable=False)
+    agendamento_id = db.Column(db.Integer, db.ForeignKey('agendamentos.id'), nullable=False, index=True)
+    servico_id = db.Column(db.Integer, db.ForeignKey('servicos.id'), nullable=False, index=True)
     
     # Relacionamentos
     servico = db.relationship('Servico')

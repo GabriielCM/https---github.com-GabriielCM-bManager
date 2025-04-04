@@ -1,13 +1,30 @@
 from app import db
 from app.models.base import Base
 from datetime import datetime
+import re
 
 class Cliente(Base):
     __tablename__ = 'clientes'
     
-    nome = db.Column(db.String(100), nullable=False)
+    nome = db.Column(db.String(100), nullable=False, index=True)
     telefone = db.Column(db.String(20), nullable=False, unique=True)
     email = db.Column(db.String(100), unique=True)
+    
+    # Validadores
+    @db.validates('telefone')
+    def validate_telefone(self, key, value):
+        # Aceita apenas números, parênteses, traços e espaços
+        if not value or not re.match(r'^[0-9()\-\s]+$', value):
+            raise ValueError("Formato de telefone inválido")
+        return value
+    
+    @db.validates('email')
+    def validate_email(self, key, value):
+        if value:  # Só valida se um email for fornecido (não é obrigatório)
+            # Verifica formato básico de email
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', value):
+                raise ValueError("Formato de email inválido")
+        return value
     
     # Relacionamentos
     agendamentos = db.relationship('Agendamento', backref='cliente', lazy='dynamic')
