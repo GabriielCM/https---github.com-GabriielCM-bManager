@@ -28,13 +28,20 @@ class Usuario(Base):
         return bcrypt.check_password_hash(self._senha_hash, senha)
     
     def to_dict(self):
-        return {
-            'id': self.id,
-            'nome': self.nome,
-            'email': self.email,
-            'perfil': self.perfil,
-            'telefone': self.telefone,
-            'ativo': self.ativo,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at
-        } 
+        try:
+            return {
+                'id': self.id,
+                'nome': self.nome,
+                'email': self.email,
+                'perfil': self.perfil,
+                'telefone': self.telefone,
+                'ativo': self.ativo,
+                'created_at': self.created_at,
+                'updated_at': self.updated_at
+            }
+        except Exception as e:
+            print(f"Erro ao converter usuário para dict: {str(e)}")
+            return {
+                'id': self.id if hasattr(self, 'id') else None,
+                'erro': f"Erro ao processar dados completos: {str(e)}"
+            } 

@@ -6,6 +6,7 @@ from flask_bcrypt import Bcrypt
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -30,7 +31,9 @@ def create_app(config_class=None):
         app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave_secreta_padrao')
         app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///bmanager.db')
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-        app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt_chave_secreta_padrao')
+        app.config['JWT_SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
+        app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)  # Access tokens expiram em 1 hora
+        app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=30)  # Refresh tokens expiram em 30 dias
     
     # Inicializar extensões
     db.init_app(app)

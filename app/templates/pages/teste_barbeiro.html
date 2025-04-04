@@ -1,0 +1,152 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Teste de Cadastro de Barbeiro | B-Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h4 class="m-0 font-weight-bold">Teste de Cadastro de Barbeiro</h4>
+                </div>
+                <div class="card-body">
+                    <form id="teste-barbeiro-form">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="nome" class="form-label">Nome*</label>
+                                <input type="text" class="form-control" id="nome" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email*</label>
+                                <input type="email" class="form-control" id="email" required>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="senha" class="form-label">Senha*</label>
+                                <input type="password" class="form-control" id="senha" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="telefone" class="form-label">Telefone</label>
+                                <input type="text" class="form-control" id="telefone">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="especialidades" class="form-label">Especialidades</label>
+                                <input type="text" class="form-control" id="especialidades" placeholder="Ex: Corte, Barba">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="comissao" class="form-label">Comissão (%)</label>
+                                <input type="number" class="form-control" id="comissao" value="50">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <button type="button" id="btn-teste-barbeiro" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Testar Cadastro
+                            </button>
+                            <button type="button" id="btn-teste-barbeiro-alternativo" class="btn btn-outline-primary ms-2">
+                                <i class="fas fa-vial me-2"></i>Testar com Endpoint Alternativo
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div class="mt-4">
+                        <h5>Resposta da API:</h5>
+                        <div id="resposta-api" class="p-3 border rounded bg-light">
+                            <pre>Aguardando envio do formulário...</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Botão para testar o cadastro
+        $('#btn-teste-barbeiro').on('click', function() {
+            enviarDados('/api/barbeiros/completo', $(this));
+        });
+        
+        // Botão para testar com endpoint alternativo
+        $('#btn-teste-barbeiro-alternativo').on('click', function() {
+            enviarDados('/api/barbeiros/teste-criar', $(this));
+        });
+        
+        // Função para enviar dados
+        function enviarDados(url, botao) {
+            // Desabilitar botão durante o envio
+            botao.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Enviando...');
+            
+            // Limpar classes anteriores
+            $('#resposta-api').removeClass('bg-success-light bg-danger-light');
+            
+            // Obter dados do formulário
+            const dados = {
+                nome: $('#nome').val(),
+                email: $('#email').val(),
+                senha: $('#senha').val(),
+                telefone: $('#telefone').val() || null,
+                especialidades: $('#especialidades').val() || '',
+                comissao_percentual: parseFloat($('#comissao').val()) || 50
+            };
+            
+            // Exibir dados que serão enviados
+            console.log('Dados a serem enviados:', dados);
+            $('#resposta-api pre').text('Enviando dados:\n' + JSON.stringify(dados, null, 2));
+            
+            // Enviar para a API
+            $.ajax({
+                url: url,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(dados),
+                success: function(response) {
+                    $('#resposta-api pre').text(JSON.stringify(response, null, 2));
+                    $('#resposta-api').addClass('bg-success-light');
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erro na requisição:', xhr.responseText);
+                    try {
+                        const resposta = JSON.parse(xhr.responseText);
+                        $('#resposta-api pre').text(
+                            `Status: ${xhr.status}\n` +
+                            JSON.stringify(resposta, null, 2)
+                        );
+                    } catch (e) {
+                        $('#resposta-api pre').text(
+                            `Status: ${xhr.status}\n` +
+                            `Erro: ${error}\n` +
+                            `Resposta: ${xhr.responseText}`
+                        );
+                    }
+                    $('#resposta-api').addClass('bg-danger-light');
+                },
+                complete: function() {
+                    // Restaurar botão
+                    const labelOriginal = url.includes('teste-criar') ? 
+                        '<i class="fas fa-vial me-2"></i>Testar com Endpoint Alternativo' : 
+                        '<i class="fas fa-save me-2"></i>Testar Cadastro';
+                    botao.prop('disabled', false).html(labelOriginal);
+                }
+            });
+            
+            // Também enviar para o endpoint de diagnóstico
+            $.ajax({
+                url: '/api/barbeiros/diagnostico',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(dados),
+                success: function(response) {
+                    console.log('Diagnóstico:', response);
+                }
+            });
+        }
+    });
+</script>
+{% endblock %} 

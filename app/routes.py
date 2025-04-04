@@ -41,6 +41,11 @@ def vendas():
 def barbeiros():
     return render_template('pages/barbeiros.html')
 
+@routes_bp.route('/teste-barbeiro')
+def teste_barbeiro():
+    """Página de teste para o cadastro de barbeiros"""
+    return render_template('pages/teste_barbeiro.html')
+
 @routes_bp.route('/relatorios')
 def relatorios():
     return render_template('pages/relatorios.html')

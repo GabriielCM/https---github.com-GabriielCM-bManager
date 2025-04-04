@@ -117,82 +117,126 @@ def obter_agendamento(id):
 @jwt_required()
 def criar_agendamento():
     try:
-        data = AgendamentoSchema().load(request.json)
-    except ValidationError as err:
-        return jsonify({"erro": "Dados inválidos", "detalhes": err.messages}), 400
-    
-    # Verificações
-    cliente = Cliente.query.get(data['cliente_id'])
-    if not cliente:
-        return jsonify({"erro": "Cliente não encontrado"}), 404
-    
-    barbeiro = Barbeiro.query.get(data['barbeiro_id'])
-    if not barbeiro:
-        return jsonify({"erro": "Barbeiro não encontrado"}), 404
-    
-    if not barbeiro.disponivel:
-        return jsonify({"erro": "Barbeiro não está disponível"}), 400
-    
-    # Verificar permissão
-    jwt_data = get_jwt()
-    perfil = jwt_data.get('perfil')
-    usuario_id = get_jwt_identity()
-    
-    if perfil == 'cliente':
-        # Cliente só pode criar agendamento para si mesmo
-        usuario = Usuario.query.get(usuario_id)
-        if not usuario or not usuario.email:
-            return jsonify({"erro": "Acesso negado"}), 403
+        dados_requisicao = request.json
+        if not dados_requisicao:
+            return jsonify({"erro": "Dados JSON não fornecidos"}), 400
         
-        cliente_do_usuario = Cliente.query.filter_by(email=usuario.email).first()
-        if not cliente_do_usuario or cliente_do_usuario.id != cliente.id:
-            return jsonify({"erro": "Acesso negado"}), 403
-    
-    # Calcular duração com base nos serviços
-    duracao_total = 0
-    for servico_item in data['servicos']:
-        servico = Servico.query.get(servico_item['servico_id'])
-        if not servico:
-            return jsonify({"erro": f"Serviço ID {servico_item['servico_id']} não encontrado"}), 404
+        # Verificar campos obrigatórios
+        campos_obrigatorios = ['cliente_id', 'barbeiro_id', 'data_hora_inicio', 'servicos']
+        for campo in campos_obrigatorios:
+            if campo not in dados_requisicao or dados_requisicao[campo] is None:
+                return jsonify({"erro": f"Campo obrigatório ausente: {campo}"}), 400
         
-        duracao_total += servico.duracao_estimada_min
-    
-    data_hora_inicio = data['data_hora_inicio']
-    data_hora_fim = data_hora_inicio + timedelta(minutes=duracao_total)
-    
-    # Verificar disponibilidade
-    if not Agendamento.verificar_disponibilidade(
-        data['barbeiro_id'], data_hora_inicio, data_hora_fim
-    ):
-        return jsonify({"erro": "Horário não disponível para o barbeiro"}), 400
-    
-    # Criar agendamento
-    agendamento = Agendamento(
-        cliente_id=data['cliente_id'],
-        barbeiro_id=data['barbeiro_id'],
-        data_hora_inicio=data_hora_inicio,
-        data_hora_fim=data_hora_fim,
-        status='pendente',
-        observacoes=data.get('observacoes')
-    )
-    
-    db.session.add(agendamento)
-    db.session.flush()  # Obter ID do agendamento sem commit
-    
-    # Adicionar serviços ao agendamento
-    for servico_item in data['servicos']:
-        agendamento_servico = AgendamentoServico(
-            agendamento_id=agendamento.id,
-            servico_id=servico_item['servico_id']
+        # Processar IDs
+        try:
+            cliente_id = int(dados_requisicao['cliente_id'])
+            barbeiro_id = int(dados_requisicao['barbeiro_id'])
+        except (ValueError, TypeError):
+            return jsonify({"erro": "ID de cliente ou barbeiro inválido"}), 400
+        
+        # Processar data e hora
+        try:
+            if isinstance(dados_requisicao['data_hora_inicio'], str):
+                data_hora_inicio = datetime.fromisoformat(dados_requisicao['data_hora_inicio'].replace('Z', '+00:00'))
+            else:
+                return jsonify({"erro": "Formato de data/hora inválido"}), 400
+        except ValueError:
+            return jsonify({"erro": "Formato de data/hora inválido. Use o formato ISO 8601 (YYYY-MM-DDTHH:MM:SS)"}), 400
+        
+        # Processar serviços
+        if not isinstance(dados_requisicao['servicos'], list) or len(dados_requisicao['servicos']) == 0:
+            return jsonify({"erro": "Lista de serviços inválida ou vazia"}), 400
+        
+        servicos_ids = []
+        for servico_item in dados_requisicao['servicos']:
+            if not isinstance(servico_item, dict) or 'servico_id' not in servico_item:
+                return jsonify({"erro": "Formato de serviço inválido. Deve incluir servico_id"}), 400
+            try:
+                servico_id = int(servico_item['servico_id'])
+                servicos_ids.append(servico_id)
+            except (ValueError, TypeError):
+                return jsonify({"erro": "ID de serviço inválido"}), 400
+        
+        # Verificações de existência
+        cliente = Cliente.query.get(cliente_id)
+        if not cliente:
+            return jsonify({"erro": "Cliente não encontrado"}), 404
+        
+        barbeiro = Barbeiro.query.get(barbeiro_id)
+        if not barbeiro:
+            return jsonify({"erro": "Barbeiro não encontrado"}), 404
+        
+        if not barbeiro.disponivel:
+            return jsonify({"erro": "Barbeiro não está disponível"}), 400
+        
+        # Verificar permissão
+        jwt_data = get_jwt()
+        perfil = jwt_data.get('perfil')
+        usuario_id = get_jwt_identity()
+        
+        if perfil == 'cliente':
+            # Cliente só pode criar agendamento para si mesmo
+            usuario = Usuario.query.get(usuario_id)
+            if not usuario or not usuario.email:
+                return jsonify({"erro": "Acesso negado"}), 403
+            
+            cliente_do_usuario = Cliente.query.filter_by(email=usuario.email).first()
+            if not cliente_do_usuario or cliente_do_usuario.id != cliente.id:
+                return jsonify({"erro": "Acesso negado"}), 403
+        
+        # Calcular duração com base nos serviços
+        duracao_total = 0
+        servicos_validos = []
+        for servico_id in servicos_ids:
+            servico = Servico.query.get(servico_id)
+            if not servico:
+                return jsonify({"erro": f"Serviço ID {servico_id} não encontrado"}), 404
+            
+            duracao_total += servico.duracao_estimada_min
+            servicos_validos.append({"servico_id": servico_id})
+        
+        data_hora_fim = data_hora_inicio + timedelta(minutes=duracao_total)
+        
+        # Verificar disponibilidade
+        if not Agendamento.verificar_disponibilidade(
+            barbeiro_id, data_hora_inicio, data_hora_fim
+        ):
+            return jsonify({"erro": "Horário não disponível para o barbeiro"}), 400
+        
+        # Adicionar observações se fornecidas
+        observacoes = dados_requisicao.get('observacoes')
+        
+        # Criar agendamento
+        agendamento = Agendamento(
+            cliente_id=cliente_id,
+            barbeiro_id=barbeiro_id,
+            data_hora_inicio=data_hora_inicio,
+            data_hora_fim=data_hora_fim,
+            status='pendente',
+            observacoes=observacoes
         )
-        db.session.add(agendamento_servico)
-    
-    db.session.commit()
-    
-    return jsonify({
-        "mensagem": "Agendamento criado com sucesso",
-        "agendamento": agendamento.to_dict()
-    }), 201
+        
+        db.session.add(agendamento)
+        db.session.flush()  # Obter ID do agendamento sem commit
+        
+        # Adicionar serviços ao agendamento
+        for servico_item in servicos_validos:
+            agendamento_servico = AgendamentoServico(
+                agendamento_id=agendamento.id,
+                servico_id=servico_item['servico_id']
+            )
+            db.session.add(agendamento_servico)
+        
+        db.session.commit()
+        
+        return jsonify({
+            "mensagem": "Agendamento criado com sucesso",
+            "agendamento": agendamento.to_dict()
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao criar agendamento: {str(e)}")
+        return jsonify({"erro": f"Erro ao criar agendamento: {str(e)}"}), 500
 
 @agendamentos_bp.route('/<int:id>', methods=['PUT'])
 @jwt_required()
@@ -219,14 +263,90 @@ def atualizar_agendamento(id):
         if not barbeiro or barbeiro.id != agendamento.barbeiro_id:
             return jsonify({"erro": "Acesso negado"}), 403
     
-    # Atualizar apenas o status e observações
-    data = request.json
+    # Carregar e validar os dados da requisição
+    try:
+        data = AgendamentoSchema().load(request.json)
+    except ValidationError as err:
+        return jsonify({"erro": "Dados inválidos", "detalhes": err.messages}), 400
     
+    # Verificações dos dados atualizados
+    if 'cliente_id' in data:
+        cliente = Cliente.query.get(data['cliente_id'])
+        if not cliente:
+            return jsonify({"erro": "Cliente não encontrado"}), 404
+        agendamento.cliente_id = data['cliente_id']
+    
+    if 'barbeiro_id' in data:
+        barbeiro = Barbeiro.query.get(data['barbeiro_id'])
+        if not barbeiro:
+            return jsonify({"erro": "Barbeiro não encontrado"}), 404
+        if not barbeiro.disponivel:
+            return jsonify({"erro": "Barbeiro não está disponível"}), 400
+        agendamento.barbeiro_id = data['barbeiro_id']
+    
+    # Atualizar data e hora de início
+    nova_data_hora = None
+    if 'data_hora_inicio' in data:
+        nova_data_hora = data['data_hora_inicio']
+        
+        # Calcular duração com base nos serviços (novos ou existentes)
+        duracao_total = 0
+        
+        # Se temos novos serviços, calculamos com base neles
+        if 'servicos' in data and data['servicos']:
+            for servico_item in data['servicos']:
+                servico = Servico.query.get(servico_item['servico_id'])
+                if not servico:
+                    return jsonify({"erro": f"Serviço ID {servico_item['servico_id']} não encontrado"}), 404
+                duracao_total += servico.duracao_estimada_min
+        else:
+            # Senão, mantemos a mesma duração que tinha antes
+            duracao_total = (agendamento.data_hora_fim - agendamento.data_hora_inicio).total_seconds() / 60
+        
+        nova_data_hora_fim = nova_data_hora + timedelta(minutes=duracao_total)
+        
+        # Verificar disponibilidade para o novo horário
+        if not Agendamento.verificar_disponibilidade(
+            agendamento.barbeiro_id if 'barbeiro_id' not in data else data['barbeiro_id'], 
+            nova_data_hora, 
+            nova_data_hora_fim,
+            agendamento_id=id
+        ):
+            return jsonify({"erro": "Horário não disponível para o barbeiro"}), 400
+        
+        agendamento.data_hora_inicio = nova_data_hora
+        agendamento.data_hora_fim = nova_data_hora_fim
+    
+    # Atualizar observações
+    if 'observacoes' in data:
+        agendamento.observacoes = data['observacoes']
+    
+    # Atualizar status
     if 'status' in data:
         agendamento.status = data['status']
     
-    if 'observacoes' in data:
-        agendamento.observacoes = data['observacoes']
+    # Atualizar serviços associados (se fornecidos)
+    if 'servicos' in data:
+        # Remover serviços existentes
+        for servico in agendamento.servicos:
+            db.session.delete(servico)
+        
+        # Adicionar novos serviços
+        for servico_item in data['servicos']:
+            agendamento_servico = AgendamentoServico(
+                agendamento_id=agendamento.id,
+                servico_id=servico_item['servico_id']
+            )
+            db.session.add(agendamento_servico)
+        
+        # Recalcular data_hora_fim se não atualizamos a data e hora de início
+        if not nova_data_hora:
+            duracao_total = 0
+            for servico_item in data['servicos']:
+                servico = Servico.query.get(servico_item['servico_id'])
+                duracao_total += servico.duracao_estimada_min
+            
+            agendamento.data_hora_fim = agendamento.data_hora_inicio + timedelta(minutes=duracao_total)
     
     db.session.commit()
     

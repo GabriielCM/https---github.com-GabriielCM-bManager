@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt, create_refresh_token
 from marshmallow import Schema, fields, validate, ValidationError
 from app.models.usuario import Usuario
 from app import db, bcrypt
@@ -34,24 +34,40 @@ def login():
     except ValidationError as err:
         return jsonify({"erro": "Dados inválidos", "detalhes": err.messages}), 400
     
+    # Buscar usuário pelo email
     usuario = Usuario.query.filter_by(email=data['email']).first()
     
+    # Verificar se o usuário existe e a senha está correta
     if not usuario or not usuario.verificar_senha(data['senha']):
-        return jsonify({"erro": "Credenciais inválidas"}), 401
+        return jsonify({"erro": "Email ou senha incorretos"}), 401
     
+    # Verificar se o usuário está ativo
     if not usuario.ativo:
-        return jsonify({"erro": "Usuário desativado"}), 403
+        return jsonify({"erro": "Usuário inativo. Entre em contato com o administrador."}), 401
     
-    # Gerar token JWT
+    # Criar token JWT
     access_token = create_access_token(
         identity=usuario.id,
-        additional_claims={'perfil': usuario.perfil},
-        expires_delta=timedelta(days=1)
+        additional_claims={
+            'perfil': usuario.perfil,
+            'nome': usuario.nome,
+            'email': usuario.email
+        }
     )
     
+    # Criar refresh token
+    refresh_token = create_refresh_token(identity=usuario.id)
+    
     return jsonify({
-        "token": access_token,
-        "usuario": usuario.to_dict()
+        "mensagem": "Login realizado com sucesso",
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "usuario": {
+            "id": usuario.id,
+            "nome": usuario.nome,
+            "email": usuario.email,
+            "perfil": usuario.perfil
+        }
     }), 200
 
 @auth_bp.route('/register', methods=['POST'])
@@ -180,4 +196,36 @@ def alterar_senha():
     usuario.senha = data['nova_senha']
     db.session.commit()
     
-    return jsonify({"mensagem": "Senha alterada com sucesso"}), 200 
+    return jsonify({"mensagem": "Senha alterada com sucesso"}), 200
+
+@auth_bp.route('/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    """
+    Endpoint para renovar o token JWT usando um refresh token
+    """
+    current_user = get_jwt_identity()
+    
+    # Obter informações do usuário para incluir no token
+    usuario = Usuario.query.get(current_user)
+    if not usuario:
+        return jsonify({"erro": "Usuário não encontrado"}), 404
+    
+    # Verificar se o usuário está ativo
+    if not usuario.ativo:
+        return jsonify({"erro": "Usuário inativo"}), 401
+    
+    # Criar novo access token com informações do usuário
+    access_token = create_access_token(
+        identity=current_user,
+        additional_claims={
+            'perfil': usuario.perfil,
+            'nome': usuario.nome,
+            'email': usuario.email
+        }
+    )
+    
+    return jsonify({
+        "mensagem": "Token renovado com sucesso",
+        "access_token": access_token
+    }), 200 
