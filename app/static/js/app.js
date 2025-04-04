@@ -3,339 +3,268 @@
  * Arquivo JS principal
  */
 
+// Objeto global para gerenciar o estado da aplicação
+const AppState = {
+    token: localStorage.getItem('token') || null,
+    usuario: JSON.parse(localStorage.getItem('usuario') || 'null'),
+    isAuthenticated: function() {
+        return !!this.token;
+    }
+};
+
 // Funções para API
 const API = {
-    // Autenticação
-    login: async (email, password) => {
+    // URL base da API
+    baseUrl: '/api',
+    
+    // Cabeçalhos padrão
+    getHeaders: function(includeAuth = true) {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (includeAuth && AppState.token) {
+            headers['Authorization'] = `Bearer ${AppState.token}`;
+        }
+        
+        return headers;
+    },
+    
+    // Utilitário para fazer chamadas à API
+    call: async function(endpoint, method = 'GET', data = null, includeAuth = true) {
+        const url = `${this.baseUrl}${endpoint}`;
+        
+        const options = {
+            method: method,
+            headers: this.getHeaders(includeAuth)
+        };
+        
+        if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+            options.body = JSON.stringify(data);
+        }
+        
         try {
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-            });
+            const response = await fetch(url, options);
             
-            if (!response.ok) {
-                throw new Error('Falha na autenticação');
+            // Verificar se a resposta é 401 (não autorizado)
+            if (response.status === 401) {
+                // Limpar token e dados de usuário
+                Auth.logout();
+                // Redirecionar para a página de login
+                window.location.href = '/';
+                throw new Error('Sessão expirada. Por favor, faça login novamente.');
             }
             
-            return await response.json();
+            // Parsear resposta como JSON
+            const responseData = await response.json();
+            
+            // Se a resposta não for bem sucedida, lançar erro
+            if (!response.ok) {
+                throw new Error(responseData.erro || 'Erro na requisição');
+            }
+            
+            return responseData;
         } catch (error) {
-            console.error('Erro ao fazer login:', error);
+            console.error(`Erro na chamada à API (${endpoint}):`, error);
             throw error;
         }
     },
     
-    // Dashboard
-    getDashboardData: async () => {
-        try {
-            // Em uma aplicação real, aqui seria feita uma requisição para a API
-            // Simulando dados para demonstração
-            return {
-                agendamentos: {
-                    hoje: 8,
-                    crescimento: 15,
-                    concluidos: '5/8',
-                    progresso: 62.5
-                },
-                vendas: {
-                    hoje: 'R$ 450,00',
-                    crescimento: 8,
-                    ticket: 'R$ 56,25',
-                    progresso: 45
-                },
-                clientes: {
-                    novos: 3,
-                    crescimento: 12,
-                    total: 147,
-                    progresso: 75
-                },
-                produtos: {
-                    baixoEstoque: 4,
-                    crescimento: 25,
-                    total: 34,
-                    progresso: 12
-                }
-            };
-        } catch (error) {
-            console.error('Erro ao obter dados do dashboard:', error);
-            throw error;
+    // Autenticação
+    auth: {
+        login: async function(email, senha) {
+            return API.call('/auth/login', 'POST', { email, senha }, false);
+        },
+        
+        register: async function(userData) {
+            return API.call('/auth/register', 'POST', userData, false);
+        },
+        
+        me: async function() {
+            return API.call('/auth/me', 'GET');
+        },
+        
+        resetPassword: async function(email) {
+            return API.call('/auth/solicitar-reset-senha', 'POST', { email }, false);
         }
     },
     
-    // Agendamentos
-    getAgendamentosHoje: async () => {
-        try {
-            // Simulando dados para demonstração
-            return [
-                {
-                    id: 1,
-                    horario: '10:00',
-                    cliente: 'João Silva',
-                    servico: 'Corte + Barba',
-                    barbeiro: 'Carlos',
-                    status: 'concluído'
-                },
-                {
-                    id: 2,
-                    horario: '11:30',
-                    cliente: 'Pedro Santos',
-                    servico: 'Corte',
-                    barbeiro: 'André',
-                    status: 'concluído'
-                },
-                {
-                    id: 3,
-                    horario: '13:00',
-                    cliente: 'Lucas Mendes',
-                    servico: 'Barba',
-                    barbeiro: 'Carlos',
-                    status: 'concluído'
-                },
-                {
-                    id: 4,
-                    horario: '14:30',
-                    cliente: 'Roberto Ferreira',
-                    servico: 'Corte + Barba',
-                    barbeiro: 'André',
-                    status: 'confirmado'
-                },
-                {
-                    id: 5,
-                    horario: '15:45',
-                    cliente: 'Marcelo Costa',
-                    servico: 'Corte',
-                    barbeiro: 'Carlos',
-                    status: 'confirmado'
-                }
-            ];
-        } catch (error) {
-            console.error('Erro ao obter agendamentos:', error);
-            throw error;
+    // Barbeiros
+    barbeiros: {
+        listar: async function() {
+            return API.call('/barbeiros', 'GET');
+        },
+        
+        obter: async function(id) {
+            return API.call(`/barbeiros/${id}`, 'GET');
+        },
+        
+        criar: async function(barbeiro) {
+            return API.call('/barbeiros', 'POST', barbeiro);
+        },
+        
+        criarCompleto: async function(barbeiro) {
+            return API.call('/barbeiros/completo', 'POST', barbeiro);
+        },
+        
+        atualizar: async function(id, barbeiro) {
+            return API.call(`/barbeiros/${id}`, 'PUT', barbeiro);
+        },
+        
+        excluir: async function(id) {
+            return API.call(`/barbeiros/${id}`, 'DELETE');
         }
     },
     
-    // Atividades recentes
-    getAtividadesRecentes: async () => {
-        try {
-            // Simulando dados para demonstração
-            return [
-                {
-                    id: 1,
-                    tipo: 'agendamento',
-                    descricao: 'Novo agendamento para Pedro Santos',
-                    horario: '09:45',
-                    data: 'Hoje'
-                },
-                {
-                    id: 2,
-                    tipo: 'venda',
-                    descricao: 'Venda finalizada no valor de R$ 85,00',
-                    horario: '11:20',
-                    data: 'Hoje'
-                },
-                {
-                    id: 3,
-                    tipo: 'produto',
-                    descricao: 'Estoque baixo de Gel Modelador',
-                    horario: '13:15',
-                    data: 'Hoje'
-                },
-                {
-                    id: 4,
-                    tipo: 'cliente',
-                    descricao: 'Novo cliente cadastrado: Roberto Ferreira',
-                    horario: '14:00',
-                    data: 'Hoje'
+    // Outras funcionalidades serão adicionadas conforme necessário
+};
+
+// Módulo de autenticação
+const Auth = {
+    init: function() {
+        this.setupLoginForm();
+        this.setupLogoutButton();
+        this.checkAuthentication();
+    },
+    
+    setupLoginForm: function() {
+        const loginForm = document.getElementById('form-login');
+        if (!loginForm) return;
+        
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const loginError = document.getElementById('login-error');
+            
+            if (!emailInput || !passwordInput) return;
+            
+            const email = emailInput.value;
+            const senha = passwordInput.value;
+            
+            // Limpar mensagens de erro
+            if (loginError) {
+                loginError.classList.add('d-none');
+                loginError.textContent = '';
+            }
+            
+            try {
+                // Tentar fazer login
+                const response = await API.auth.login(email, senha);
+                
+                // Login bem-sucedido
+                console.log('Login bem-sucedido:', response);
+                
+                // Salvar token e dados do usuário
+                localStorage.setItem('token', response.token);
+                localStorage.setItem('usuario', JSON.stringify(response.usuario));
+                
+                // Atualizar estado da aplicação
+                AppState.token = response.token;
+                AppState.usuario = response.usuario;
+                
+                // Redirecionar para a página principal
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Erro ao fazer login:', error);
+                
+                // Mostrar mensagem de erro
+                if (loginError) {
+                    loginError.classList.remove('d-none');
+                    loginError.textContent = 'Email ou senha incorretos. Tente novamente.';
                 }
-            ];
-        } catch (error) {
-            console.error('Erro ao obter atividades recentes:', error);
-            throw error;
+            }
+        });
+    },
+    
+    setupLogoutButton: function() {
+        const logoutBtn = document.getElementById('logout-btn');
+        if (!logoutBtn) return;
+        
+        logoutBtn.addEventListener('click', () => {
+            this.logout();
+            window.location.href = '/';
+        });
+    },
+    
+    logout: function() {
+        // Limpar dados de autenticação
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+        
+        // Atualizar estado da aplicação
+        AppState.token = null;
+        AppState.usuario = null;
+    },
+    
+    checkAuthentication: function() {
+        // Verificar se estamos na página principal e o usuário está autenticado
+        const isIndexPage = window.location.pathname === '/' || window.location.pathname === '/index.html';
+        const loginForm = document.getElementById('login-form');
+        const dashboardContainer = document.getElementById('dashboard-container');
+        
+        if (isIndexPage && loginForm && dashboardContainer) {
+            if (AppState.isAuthenticated()) {
+                // Usuário autenticado: mostrar dashboard, esconder login
+                loginForm.classList.add('d-none');
+                dashboardContainer.classList.remove('d-none');
+                
+                // Atualizar nome do usuário nas interfaces
+                const userNameElements = document.querySelectorAll('.user-name');
+                userNameElements.forEach(el => {
+                    el.textContent = AppState.usuario?.nome || 'Usuário';
+                });
+            } else {
+                // Usuário não autenticado: mostrar login, esconder dashboard
+                loginForm.classList.remove('d-none');
+                dashboardContainer.classList.add('d-none');
+            }
         }
     }
 };
 
-// Gerenciamento do Dashboard
-const Dashboard = {
-    init: async () => {
-        try {
-            // Atualiza os dados do dashboard
-            const dashboardData = await API.getDashboardData();
-            
-            // Atualiza os contadores
-            document.getElementById('agendamentos-hoje').textContent = dashboardData.agendamentos.hoje;
-            document.getElementById('agendamentos-crescimento').textContent = `${dashboardData.agendamentos.crescimento}%`;
-            document.getElementById('agendamentos-concluidos').textContent = dashboardData.agendamentos.concluidos;
-            document.getElementById('agendamentos-progress').style.width = `${dashboardData.agendamentos.progresso}%`;
-            
-            document.getElementById('vendas-hoje').textContent = dashboardData.vendas.hoje;
-            document.getElementById('vendas-crescimento').textContent = `${dashboardData.vendas.crescimento}%`;
-            document.getElementById('vendas-ticket').textContent = dashboardData.vendas.ticket;
-            document.getElementById('vendas-progress').style.width = `${dashboardData.vendas.progresso}%`;
-            
-            document.getElementById('clientes-novos').textContent = dashboardData.clientes.novos;
-            document.getElementById('clientes-crescimento').textContent = `${dashboardData.clientes.crescimento}%`;
-            document.getElementById('clientes-total').textContent = dashboardData.clientes.total;
-            document.getElementById('clientes-progress').style.width = `${dashboardData.clientes.progresso}%`;
-            
-            document.getElementById('produtos-baixo-estoque').textContent = dashboardData.produtos.baixoEstoque;
-            document.getElementById('produtos-baixo-crescimento').textContent = `${dashboardData.produtos.crescimento}%`;
-            document.getElementById('produtos-total').textContent = dashboardData.produtos.total;
-            document.getElementById('produtos-progress').style.width = `${dashboardData.produtos.progresso}%`;
-            
-            // Carrega agendamentos de hoje
-            await Dashboard.carregarAgendamentos();
-            
-            // Carrega atividades recentes
-            await Dashboard.carregarAtividades();
-            
-        } catch (error) {
-            console.error('Erro ao inicializar dashboard:', error);
-        }
+// Utilitários
+const Utils = {
+    // Formatar data para o formato brasileiro
+    formatDate: function(date) {
+        if (!date) return '';
+        
+        const d = new Date(date);
+        return new Intl.DateTimeFormat('pt-BR').format(d);
     },
     
-    carregarAgendamentos: async () => {
-        try {
-            // Obtém elementos do DOM
-            const tabelaAgendamentos = document.getElementById('tabela-agendamentos');
-            const agendamentosEmpty = document.getElementById('agendamentos-empty');
-            const agendamentosLoading = document.getElementById('agendamentos-loading');
-            
-            // Mostra loading
-            agendamentosLoading.classList.remove('d-none');
-            agendamentosEmpty.classList.add('d-none');
-            
-            // Obtém dados da API
-            const agendamentos = await API.getAgendamentosHoje();
-            
-            // Esconde loading
-            agendamentosLoading.classList.add('d-none');
-            
-            // Verifica se há agendamentos
-            if (agendamentos.length === 0) {
-                agendamentosEmpty.classList.remove('d-none');
-                return;
-            }
-            
-            // Limpa a tabela
-            tabelaAgendamentos.innerHTML = '';
-            
-            // Adiciona os agendamentos à tabela
-            agendamentos.forEach(agendamento => {
-                const tr = document.createElement('tr');
-                
-                // Define a classe baseada no status
-                if (agendamento.status === 'concluído') {
-                    tr.classList.add('table-success');
-                }
-                
-                tr.innerHTML = `
-                    <td>${agendamento.horario}</td>
-                    <td>${agendamento.cliente}</td>
-                    <td>${agendamento.servico}</td>
-                    <td>${agendamento.barbeiro}</td>
-                    <td>
-                        <span class="badge ${agendamento.status === 'concluído' ? 'bg-success' : 'bg-primary'}">
-                            ${agendamento.status}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-outline-secondary">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                
-                tabelaAgendamentos.appendChild(tr);
-            });
-            
-        } catch (error) {
-            console.error('Erro ao carregar agendamentos:', error);
-        }
+    // Formatar moeda para o formato brasileiro
+    formatCurrency: function(value) {
+        if (value === undefined || value === null) return 'R$ 0,00';
+        
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(value);
     },
     
-    carregarAtividades: async () => {
-        try {
-            // Obtém elementos do DOM
-            const atividadesTimeline = document.getElementById('atividades-timeline');
-            const atividadesEmpty = document.getElementById('atividades-empty');
-            const atividadesLoading = document.getElementById('atividades-loading');
-            
-            // Mostra loading
-            atividadesLoading.classList.remove('d-none');
-            atividadesEmpty.classList.add('d-none');
-            
-            // Obtém dados da API
-            const atividades = await API.getAtividadesRecentes();
-            
-            // Esconde loading
-            atividadesLoading.classList.add('d-none');
-            
-            // Verifica se há atividades
-            if (atividades.length === 0) {
-                atividadesEmpty.classList.remove('d-none');
-                return;
-            }
-            
-            // Limpa o timeline
-            atividadesTimeline.innerHTML = '';
-            
-            // Adiciona as atividades ao timeline
-            atividades.forEach(atividade => {
-                // Define o ícone baseado no tipo de atividade
-                let icone = 'fas fa-info-circle';
-                let corIcone = 'bg-primary';
-                
-                switch (atividade.tipo) {
-                    case 'agendamento':
-                        icone = 'fas fa-calendar-check';
-                        corIcone = 'bg-primary';
-                        break;
-                    case 'venda':
-                        icone = 'fas fa-shopping-cart';
-                        corIcone = 'bg-success';
-                        break;
-                    case 'produto':
-                        icone = 'fas fa-box';
-                        corIcone = 'bg-warning';
-                        break;
-                    case 'cliente':
-                        icone = 'fas fa-user';
-                        corIcone = 'bg-info';
-                        break;
-                }
-                
-                const itemHtml = `
-                    <div class="timeline-item mb-3">
-                        <div class="d-flex">
-                            <div class="me-3">
-                                <div class="icon-circle ${corIcone} text-white">
-                                    <i class="${icone}"></i>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="small text-gray-500">${atividade.data} - ${atividade.horario}</div>
-                                <div>${atividade.descricao}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                atividadesTimeline.innerHTML += itemHtml;
-            });
-            
-        } catch (error) {
-            console.error('Erro ao carregar atividades:', error);
+    // Mostrar notificação
+    showNotification: function(message, type = 'info') {
+        // Implementar sistema de notificações
+        if (typeof toast === 'function') {
+            toast(message, type);
+        } else {
+            alert(message);
         }
     }
 };
+
+// Inicializar quando o DOM estiver carregado
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('B-Manager: Inicializando aplicação...');
+    
+    // Inicializar autenticação
+    Auth.init();
+    
+    // Inicializar links do sidebar
+    initSidebarLinks();
+});
 
 // Inicializar links do sidebar
 function initSidebarLinks() {
@@ -346,111 +275,23 @@ function initSidebarLinks() {
     if (agendaLink) {
         console.log('Configurando link da agenda');
         agendaLink.setAttribute('href', '/agenda');
-        
-        // Apenas log para depuração, sem preventDefault para permitir a navegação normal
-        agendaLink.addEventListener('click', function(event) {
-            console.log('Link da agenda clicado, redirecionando para:', agendaLink.getAttribute('href'));
-        });
     }
     
-    // Função global para mostrar uma página (usada apenas nos links que não têm páginas dedicadas)
-    window.showPage = function(page) {
-        // Verificar se estamos na página index, que contém todos os containers
-        if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
-            console.log('Mostrando página:', page);
-            // Esta função está definida apenas na página index.html
-            if (typeof document.getElementById('dashboard-container') !== 'undefined') {
-                // Esconder todos os containers
-                const containers = {
-                    'dashboard': document.getElementById('dashboard-container'),
-                    'agenda': document.getElementById('agenda-container'),
-                    'clientes': document.getElementById('clientes-container'),
-                    'servicos': document.getElementById('servicos-container'),
-                    'produtos': document.getElementById('produtos-container'),
-                    'vendas': document.getElementById('vendas-container'),
-                    'barbeiros': document.getElementById('barbeiros-container'),
-                    'relatorios': document.getElementById('relatorios-container'),
-                    'config': document.getElementById('config-container')
-                };
-                
-                // Esconder todos
-                Object.values(containers).forEach(container => {
-                    if (container) container.classList.add('d-none');
-                });
-                
-                // Mostrar o específico
-                if (containers[page]) {
-                    containers[page].classList.remove('d-none');
-                }
-                
-                // Atualizar classe ativa nos links
-                const menuLinks = {
-                    'dashboard': document.querySelector('.nav-link.active'),
-                    'agenda': document.getElementById('agenda-link'),
-                    'clientes': document.getElementById('clientes-link'),
-                    'servicos': document.getElementById('servicos-link'),
-                    'produtos': document.getElementById('produtos-link'),
-                    'vendas': document.getElementById('vendas-link'),
-                    'barbeiros': document.getElementById('barbeiros-link'),
-                    'relatorios': document.getElementById('relatorios-link'),
-                    'config': document.getElementById('config-link')
-                };
-                
-                Object.entries(menuLinks).forEach(([key, link]) => {
-                    if (link) {
-                        if (key === page) {
-                            link.classList.add('active');
-                        } else {
-                            link.classList.remove('active');
-                        }
-                    }
-                });
-            }
-        } else {
-            // Se não estamos na página index, redirecionar para a página correta
-            window.location.href = '/' + page;
-        }
+    // Links para outros módulos - usar páginas dedicadas
+    const links = {
+        'clientes': '/clientes',
+        'servicos': '/servicos',
+        'produtos': '/produtos',
+        'vendas': '/vendas',
+        'barbeiros': '/barbeiros',
+        'relatorios': '/relatorios',
+        'configuracoes': '/configuracoes'
     };
     
-    // Links para outros módulos - usar páginas dedicadas, se disponíveis
-    const clientesLink = document.getElementById('clientes-link');
-    if (clientesLink) {
-        clientesLink.setAttribute('href', '/clientes');
-    }
-    
-    const servicosLink = document.getElementById('servicos-link');
-    if (servicosLink) {
-        servicosLink.setAttribute('href', '/servicos');
-    }
-    
-    const produtosLink = document.getElementById('produtos-link');
-    if (produtosLink) {
-        produtosLink.setAttribute('href', '/produtos');
-    }
-    
-    const vendasLink = document.getElementById('vendas-link');
-    if (vendasLink) {
-        vendasLink.setAttribute('href', '/vendas');
-    }
-    
-    const barbeirosLink = document.getElementById('barbeiros-link');
-    if (barbeirosLink) {
-        barbeirosLink.setAttribute('href', '/barbeiros');
-    }
-    
-    const relatoriosLink = document.getElementById('relatorios-link');
-    if (relatoriosLink) {
-        relatoriosLink.setAttribute('href', '/relatorios');
-    }
-    
-    const configLink = document.getElementById('config-link');
-    if (configLink) {
-        configLink.setAttribute('href', '/configuracoes');
-    }
+    Object.entries(links).forEach(([key, path]) => {
+        const link = document.getElementById(`${key}-link`);
+        if (link) {
+            link.setAttribute('href', path);
+        }
+    });
 }
-
-// Executar quando o documento estiver carregado
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM carregado, inicializando links');
-    initSidebarLinks();
-});

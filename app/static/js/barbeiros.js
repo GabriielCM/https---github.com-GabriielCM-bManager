@@ -155,9 +155,264 @@ function carregarBarbeiros() {
 
 // Função para abrir modal de novo barbeiro
 function abrirModalBarbeiro(id = null) {
-    // Implementar abertura do modal para criar ou editar barbeiro
-    console.log('Abrir modal barbeiro, ID:', id);
-    alert('Funcionalidade em desenvolvimento: ' + (id ? 'Editar barbeiro #' + id : 'Novo barbeiro'));
+    // Título do modal baseado em criar novo ou editar existente
+    const modalTitulo = id ? 'Editar Barbeiro' : 'Novo Barbeiro';
+    
+    // HTML do modal
+    const modalHTML = `
+    <div class="modal fade" id="barbeiro-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">${modalTitulo}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="barbeiro-form">
+                        <input type="hidden" id="barbeiro-id" value="${id || ''}">
+                        
+                        <ul class="nav nav-tabs mb-3" id="barbeiro-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info-tab-pane" type="button" role="tab" aria-controls="info-tab-pane" aria-selected="true">Informações Básicas</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="especialidades-tab" data-bs-toggle="tab" data-bs-target="#especialidades-tab-pane" type="button" role="tab" aria-controls="especialidades-tab-pane" aria-selected="false">Especialidades</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="financeiro-tab" data-bs-toggle="tab" data-bs-target="#financeiro-tab-pane" type="button" role="tab" aria-controls="financeiro-tab-pane" aria-selected="false">Financeiro</button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="barbeiro-tabs-content">
+                            <!-- Aba de Informações Básicas -->
+                            <div class="tab-pane fade show active" id="info-tab-pane" role="tabpanel" aria-labelledby="info-tab">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="barbeiro-nome" class="form-label">Nome Completo *</label>
+                                        <input type="text" class="form-control" id="barbeiro-nome" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="barbeiro-telefone" class="form-label">Telefone</label>
+                                        <input type="text" class="form-control" id="barbeiro-telefone">
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="barbeiro-email" class="form-label">Email *</label>
+                                        <input type="email" class="form-control" id="barbeiro-email" required>
+                                    </div>
+                                    <div class="col-md-6" id="senha-container">
+                                        <label for="barbeiro-senha" class="form-label">Senha *</label>
+                                        <input type="password" class="form-control" id="barbeiro-senha">
+                                        <small class="text-muted">Mínimo de 6 caracteres</small>
+                                    </div>
+                                </div>
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="barbeiro-disponivel" checked>
+                                    <label class="form-check-label" for="barbeiro-disponivel">Disponível para agendamentos</label>
+                                </div>
+                            </div>
+                            
+                            <!-- Aba de Especialidades -->
+                            <div class="tab-pane fade" id="especialidades-tab-pane" role="tabpanel" aria-labelledby="especialidades-tab">
+                                <div class="mb-3">
+                                    <label for="barbeiro-especialidades" class="form-label">Especialidades (separe por vírgula)</label>
+                                    <textarea class="form-control" id="barbeiro-especialidades" rows="3" placeholder="Ex: Corte masculino, Barba, Fade, Progressiva, etc"></textarea>
+                                </div>
+                                
+                                <div class="border p-3 rounded mb-3">
+                                    <p class="mb-2"><strong>Especialidades populares:</strong></p>
+                                    <div id="tags-especialidades" class="d-flex flex-wrap gap-2">
+                                        <span class="badge bg-secondary" data-value="Corte masculino">Corte masculino</span>
+                                        <span class="badge bg-secondary" data-value="Barba">Barba</span>
+                                        <span class="badge bg-secondary" data-value="Fade">Fade</span>
+                                        <span class="badge bg-secondary" data-value="Degradê">Degradê</span>
+                                        <span class="badge bg-secondary" data-value="Coloração">Coloração</span>
+                                        <span class="badge bg-secondary" data-value="Progressiva">Progressiva</span>
+                                        <span class="badge bg-secondary" data-value="Alisamento">Alisamento</span>
+                                        <span class="badge bg-secondary" data-value="Relaxamento">Relaxamento</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Aba Financeiro -->
+                            <div class="tab-pane fade" id="financeiro-tab-pane" role="tabpanel" aria-labelledby="financeiro-tab">
+                                <div class="mb-3">
+                                    <label for="barbeiro-comissao" class="form-label">Percentual de Comissão (%)</label>
+                                    <input type="number" class="form-control" id="barbeiro-comissao" min="0" max="100" value="50">
+                                    <small class="text-muted">Percentual que o barbeiro recebe sobre o valor dos serviços realizados</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-danger d-none" id="barbeiro-form-erro"></div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="barbeiro-salvar">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    // Remover qualquer modal existente e adicionar o novo
+    $('#barbeiro-modal').remove();
+    $('body').append(modalHTML);
+    
+    // Inicializar o modal
+    const modal = new bootstrap.Modal(document.getElementById('barbeiro-modal'));
+    modal.show();
+    
+    // Se for edição, carregar dados do barbeiro
+    if (id) {
+        $('#senha-container').append('<small class="form-text text-muted d-block">Deixe em branco para manter a senha atual</small>');
+        carregarDadosBarbeiro(id);
+    }
+    
+    // Evento para adicionar tags de especialidades
+    $('#tags-especialidades .badge').on('click', function() {
+        const especialidade = $(this).data('value');
+        let especialidades = $('#barbeiro-especialidades').val();
+        
+        if (especialidades) {
+            // Verificar se já contém a especialidade
+            const especialidadesArray = especialidades.split(',').map(e => e.trim());
+            if (!especialidadesArray.includes(especialidade)) {
+                especialidades += ', ' + especialidade;
+            }
+        } else {
+            especialidades = especialidade;
+        }
+        
+        $('#barbeiro-especialidades').val(especialidades);
+    });
+    
+    // Evento para salvar barbeiro
+    $('#barbeiro-salvar').on('click', function() {
+        salvarBarbeiro();
+    });
+}
+
+// Função para carregar dados de um barbeiro existente
+function carregarDadosBarbeiro(id) {
+    // Obter token JWT
+    const token = localStorage.getItem('token');
+    
+    // Fazer requisição à API
+    $.ajax({
+        url: `${API_URL}/barbeiros/${id}`,
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        success: function(response) {
+            console.log('Dados do barbeiro carregados:', response);
+            
+            // Preencher campos do formulário
+            $('#barbeiro-nome').val(response.nome);
+            $('#barbeiro-email').val(response.email);
+            $('#barbeiro-telefone').val(response.telefone || '');
+            $('#barbeiro-disponivel').prop('checked', response.disponivel);
+            $('#barbeiro-especialidades').val(response.especialidades_texto || '');
+            $('#barbeiro-comissao').val(response.comissao_percentual);
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao carregar dados do barbeiro:', xhr.responseText);
+            $('#barbeiro-form-erro').removeClass('d-none').text('Erro ao carregar dados do barbeiro. Tente novamente.');
+        }
+    });
+}
+
+// Função para salvar barbeiro (novo ou existente)
+function salvarBarbeiro() {
+    // Obter dados do formulário
+    const id = $('#barbeiro-id').val();
+    const nome = $('#barbeiro-nome').val();
+    const email = $('#barbeiro-email').val();
+    const senha = $('#barbeiro-senha').val();
+    const telefone = $('#barbeiro-telefone').val();
+    const disponivel = $('#barbeiro-disponivel').is(':checked');
+    const especialidades = $('#barbeiro-especialidades').val();
+    const comissao = $('#barbeiro-comissao').val();
+    
+    // Validar campos obrigatórios
+    if (!nome || !email) {
+        $('#barbeiro-form-erro').removeClass('d-none').text('Preencha todos os campos obrigatórios.');
+        return;
+    }
+    
+    // Validar senha para novo barbeiro
+    if (!id && !senha) {
+        $('#barbeiro-form-erro').removeClass('d-none').text('Senha é obrigatória para novo barbeiro.');
+        return;
+    }
+    
+    // Dados para enviar à API
+    const dados = {
+        nome: nome,
+        email: email,
+        telefone: telefone,
+        disponivel: disponivel,
+        especialidades: especialidades,
+        comissao_percentual: parseFloat(comissao)
+    };
+    
+    // Adicionar senha apenas se for fornecida
+    if (senha) {
+        dados.senha = senha;
+    }
+    
+    // Obter token JWT
+    const token = localStorage.getItem('token');
+    
+    // URL e método da requisição
+    const url = id 
+        ? `${API_URL}/barbeiros/${id}` 
+        : `${API_URL}/barbeiros/completo`;
+    const metodo = id ? 'PUT' : 'POST';
+    
+    // Fazer requisição à API
+    $.ajax({
+        url: url,
+        method: metodo,
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        data: JSON.stringify(dados),
+        success: function(response) {
+            console.log('Barbeiro salvo com sucesso:', response);
+            
+            // Fechar modal
+            $('#barbeiro-modal').modal('hide');
+            
+            // Exibir notificação
+            mostrarNotificacao(
+                id ? 'Barbeiro atualizado com sucesso!' : 'Novo barbeiro criado com sucesso!',
+                'success'
+            );
+            
+            // Recarregar lista de barbeiros
+            carregarBarbeiros();
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao salvar barbeiro:', xhr.responseText);
+            
+            let mensagemErro = 'Erro ao salvar barbeiro. Tente novamente.';
+            
+            // Tentar extrair mensagem de erro da resposta
+            try {
+                const resposta = JSON.parse(xhr.responseText);
+                mensagemErro = resposta.erro || resposta.detalhes || mensagemErro;
+            } catch (e) {
+                console.error('Erro ao parsear resposta:', e);
+            }
+            
+            $('#barbeiro-form-erro').removeClass('d-none').text(mensagemErro);
+        }
+    });
 }
 
 // Função para editar barbeiro

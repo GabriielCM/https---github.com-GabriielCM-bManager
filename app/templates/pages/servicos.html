@@ -58,7 +58,7 @@
                                 </tr>
                             </thead>
                             <tbody id="servicos-lista">
-                                <!-- Lista de serviços será carregada via AJAX -->
+                                <!-- Lista de serviços será carregada via JavaScript -->
                             </tbody>
                         </table>
                     </div>
@@ -70,8 +70,10 @@
                         </button>
                     </div>
                     <div id="servicos-loading" class="text-center py-4 d-none">
-                        <div class="loading-spinner"></div>
-                        <p>Carregando serviços...</p>
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-2">Carregando serviços...</p>
                     </div>
                 </div>
             </div>
@@ -86,7 +88,13 @@
                 </div>
                 <div class="card-body">
                     <div id="categorias-servicos">
-                        <!-- Categorias serão carregadas via AJAX -->
+                        <!-- Categorias serão carregadas via JavaScript -->
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Carregando...</span>
+                            </div>
+                            <p class="mt-2">Carregando categorias...</p>
+                        </div>
                     </div>
                     <button class="btn btn-sm btn-outline-primary mt-3" id="categoria-nova-btn">
                         <i class="fas fa-plus me-1"></i>Nova Categoria
@@ -101,7 +109,7 @@
                     <h6 class="m-0 font-weight-bold">Serviços Mais Populares</h6>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container">
+                    <div class="chart-container" style="position: relative; height: 250px;">
                         <canvas id="servicos-populares-chart"></canvas>
                     </div>
                     <div id="servicos-populares-empty" class="text-center py-4 d-none">
@@ -111,23 +119,81 @@
             </div>
         </div>
     </div>
+    
+    <!-- Modal de Serviço -->
+    <div class="modal fade" id="modal-servico" tabindex="-1" aria-labelledby="modal-servico-titulo" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-servico-titulo">Novo Serviço</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="form-servico">
+                        <input type="hidden" id="servico-id">
+                        
+                        <div class="mb-3">
+                            <label for="servico-nome" class="form-label">Nome do Serviço*</label>
+                            <input type="text" class="form-control" id="servico-nome" required 
+                                placeholder="Ex: Corte de Cabelo Masculino">
+                            <div class="invalid-feedback">Por favor, informe o nome do serviço.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="servico-descricao" class="form-label">Descrição</label>
+                            <textarea class="form-control" id="servico-descricao" rows="3" 
+                                placeholder="Uma breve descrição do serviço oferecido..."></textarea>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="servico-preco" class="form-label">Preço (R$)*</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" class="form-control" id="servico-preco" required 
+                                        placeholder="0.00" min="0" step="0.01">
+                                </div>
+                                <div class="invalid-feedback">Por favor, informe um preço válido.</div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="servico-duracao" class="form-label">Duração (min)*</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="servico-duracao" required 
+                                        placeholder="30" min="5" step="5">
+                                    <span class="input-group-text">min</span>
+                                </div>
+                                <div class="invalid-feedback">Por favor, informe a duração estimada em minutos.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="servico-categoria" class="form-label">Categoria</label>
+                            <select class="form-select" id="servico-categoria">
+                                <option value="">Selecione uma categoria</option>
+                                <option value="Cabelo">Cabelo</option>
+                                <option value="Barba">Barba</option>
+                                <option value="Combo">Combo</option>
+                                <option value="Tratamento">Tratamento</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" form="form-servico">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<!-- Importar bibliotecas necessárias -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <!-- Script para a página de serviços -->
 <script src="/static/js/servicos.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Página de serviços carregada com sucesso!');
-        
-        // Destacar o link de serviços no sidebar como ativo
-        const servicosLink = document.getElementById('servicos-link');
-        if (servicosLink) {
-            const sidebarLinks = document.querySelectorAll('.nav-link');
-            sidebarLinks.forEach(link => link.classList.remove('active'));
-            servicosLink.classList.add('active');
-        }
-    });
-</script>
 {% endblock %} 

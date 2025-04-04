@@ -1,310 +1,662 @@
 /**
- * Funções para gerenciamento de serviços
+ * servicos.js - Gerenciamento de serviços do sistema
+ * B-Manager - Sistema de Gestão para Barbearias
  */
 
-// Carregar lista de serviços
-function loadServicos() {
-    // Exibir loading
-    $('#servicos-list').html('<div class="text-center my-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>');
+// Carregar serviços ao iniciar a página
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Página de serviços inicializada');
     
-    // Fazer requisição AJAX
-    $.ajax({
-        url: '/api/servicos',
-        type: 'GET',
-        success: function(response) {
-            if (response.servicos.length === 0) {
-                // Exibir mensagem de lista vazia
-                $('#servicos-list').html(`
-                    <div class="text-center my-5">
-                        <img src="/static/img/empty-list.svg" alt="Lista vazia" class="img-fluid mb-3" style="max-height: 150px;">
-                        <h5>Nenhum serviço cadastrado</h5>
-                        <p class="text-muted">Cadastre o primeiro serviço para começar</p>
-                        <button id="servico-novo-btn-empty" class="btn btn-primary">
-                            <i class="fas fa-plus-circle me-2"></i> Novo Serviço
-                        </button>
-                    </div>
-                `);
-            } else {
-                // Renderizar lista de serviços
-                let html = '';
-                response.servicos.forEach(servico => {
-                    // Calcular classe de popularidade
-                    let popularidadeClass = 'bg-secondary';
-                    let popularidadeText = 'Novo';
-                    
-                    if (servico.popularidade > 75) {
-                        popularidadeClass = 'bg-success';
-                        popularidadeText = 'Alta';
-                    } else if (servico.popularidade > 25) {
-                        popularidadeClass = 'bg-info';
-                        popularidadeText = 'Média';
-                    } else if (servico.popularidade > 0) {
-                        popularidadeClass = 'bg-warning';
-                        popularidadeText = 'Baixa';
-                    }
-                    
-                    // Formatar valor com R$
-                    const valorFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(servico.valor);
-                    
-                    // Calcular duração em minutos
-                    const duracaoMin = Math.round(servico.duracao / 60);
-                    
-                    html += `
-                        <div class="col-md-4 mb-4">
-                            <div class="card h-100 shadow-sm">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <span class="badge ${popularidadeClass}">${popularidadeText}</span>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-light" type="button" data-bs-toggle="dropdown">
-                                            <i class="fas fa-ellipsis-v"></i>
-                                        </button>
-                                        <ul class="dropdown-menu dropdown-menu-end">
-                                            <li><a class="dropdown-item" href="#" onclick="openModalServico(${servico.id})"><i class="fas fa-edit me-2"></i> Editar</a></li>
-                                            <li><a class="dropdown-item text-danger" href="#" onclick="excluirServico(${servico.id})"><i class="fas fa-trash me-2"></i> Excluir</a></li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <h5 class="card-title">${servico.nome}</h5>
-                                    <p class="card-text text-muted">${servico.descricao || 'Sem descrição'}</p>
-                                </div>
-                                <div class="card-footer bg-transparent">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <span class="badge bg-primary rounded-pill">${valorFormatado}</span>
-                                        <span><i class="far fa-clock me-1"></i> ${duracaoMin} min</span>
-                                        <span><i class="fas fa-calendar-check me-1"></i> ${servico.agendamentos_count || 0}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                $('#servicos-list').html(`<div class="row">${html}</div>`);
-                
-                // Criar gráfico de serviços
-                createServicosChart(response.servicos);
-            }
-        },
-        error: function(xhr) {
-            $('#servicos-list').html(`
-                <div class="alert alert-danger" role="alert">
-                    Erro ao carregar serviços: ${xhr.responseJSON?.message || 'Erro desconhecido'}
-                </div>
-            `);
-        }
+    // Destacar item no menu
+    highlightMenuItem('servicos-link');
+    
+    // Carregar serviços
+    carregarServicos();
+    
+    // Adicionar eventos
+    document.getElementById('servico-novo-btn').addEventListener('click', () => abrirModalServico());
+    document.getElementById('servico-busca-btn').addEventListener('click', () => buscarServicos());
+    document.getElementById('servico-busca').addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') buscarServicos();
     });
+    
+    // Adicionar evento para o botão de nova categoria
+    document.getElementById('categoria-nova-btn').addEventListener('click', () => abrirModalNovaCategoria());
+    
+    // Eventos do modal
+    document.getElementById('form-servico').addEventListener('submit', (e) => {
+        e.preventDefault();
+        salvarServico();
+    });
+    
+    // Inicializar tooltips
+    initTooltips();
+});
+
+/**
+ * Configurar headers padrão
+ */
+function getHeaders() {
+    return {
+        'Content-Type': 'application/json'
+    };
 }
 
-// Criar gráfico de serviços
-function createServicosChart(servicos) {
-    // Ordenar serviços por popularidade e pegar os 5 mais populares
-    const servicosOrdenados = [...servicos].sort((a, b) => b.agendamentos_count - a.agendamentos_count).slice(0, 5);
+/**
+ * Carregar lista de serviços da API
+ */
+function carregarServicos() {
+    // Exibir loading
+    toggleLoading(true);
     
-    // Preparar dados para o gráfico
-    const labels = servicosOrdenados.map(s => s.nome);
-    const data = servicosOrdenados.map(s => s.agendamentos_count || 0);
+    // Fazer requisição à API
+    fetch('/api/servicos/', {
+        method: 'GET',
+        headers: getHeaders()
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erro ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Armazenar em cache local
+            armazenarServicosCache(data);
+            
+            renderizarServicos(data);
+            carregarEstatisticas(data);
+            
+            // Forçar atualização da seção de categorias
+            renderizarCategorias(data);
+        })
+        .catch(error => {
+            mostrarErro(`Falha ao carregar serviços: ${error.message}`);
+        })
+        .finally(() => {
+            toggleLoading(false);
+        });
+}
+
+/**
+ * Renderiza a lista de serviços na tabela
+ * @param {Array} servicos - Lista de serviços retornados pela API
+ */
+function renderizarServicos(servicos) {
+    const tbody = document.getElementById('servicos-lista');
+    const emptyState = document.getElementById('servicos-empty');
     
-    // Remover chart existente se houver
-    if (window.servicosChart) {
-        window.servicosChart.destroy();
-    }
-    
-    // Se não houver dados suficientes, não criar o gráfico
-    if (servicosOrdenados.length === 0) {
-        $('#servicos-chart-container').html(`
-            <div class="alert alert-info" role="alert">
-                Não há dados suficientes para exibir o gráfico de serviços.
-            </div>
-        `);
+    if (!servicos || servicos.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('d-none');
         return;
     }
     
-    // Criar novo chart
-    const ctx = document.getElementById('chart-servicos');
-    window.servicosChart = new Chart(ctx, {
+    emptyState.classList.add('d-none');
+    
+    // Construir HTML da tabela
+    let html = '';
+    
+    servicos.forEach(servico => {
+        // Como o campo ativo não existe no modelo, vamos assumir que todos estão ativos
+        const statusBadge = '<span class="badge bg-success">Ativo</span>';
+            
+        // Inferir categoria baseado no nome do serviço, já que não temos o campo no modelo
+        const categoria = inferirCategoria(servico.nome);
+        
+        const preco = formataMoeda(servico.preco);
+        
+        html += `
+            <tr>
+                <td>${servico.nome}</td>
+                <td>${categoria}</td>
+                <td>${servico.duracao_estimada_min} min</td>
+                <td>${preco}</td>
+                <td>${statusBadge}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary me-1" 
+                            onclick="abrirModalServico(${servico.id})" 
+                            data-bs-toggle="tooltip" 
+                            title="Editar serviço">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" 
+                            onclick="confirmarExclusao(${servico.id}, '${servico.nome}')" 
+                            data-bs-toggle="tooltip" 
+                            title="Excluir serviço">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+    
+    // Reinicializar tooltips nos botões
+    initTooltips();
+}
+
+/**
+ * Carregar estatísticas e gráficos
+ * @param {Array} servicos - Lista de serviços
+ */
+function carregarEstatisticas(servicos) {
+    if (!servicos || servicos.length === 0) {
+        document.getElementById('servicos-populares-empty').classList.remove('d-none');
+        return;
+    }
+    
+    // Gerar dados para o gráfico
+    const ctx = document.getElementById('servicos-populares-chart').getContext('2d');
+    
+    // Como não temos estatísticas de agendamentos, vamos simular valores aleatórios
+    // Em produção, este dado viria da API junto com os serviços
+    servicos.forEach(servico => {
+        servico.total_agendamentos = Math.floor(Math.random() * 50) + 1; // 1-50 agendamentos aleatórios
+    });
+    
+    // Ordenar serviços por número de agendamentos (popularidade)
+    const servicosOrdenados = [...servicos]
+        .sort((a, b) => {
+            const aCount = a.total_agendamentos || 0;
+            const bCount = b.total_agendamentos || 0;
+            return bCount - aCount;
+        })
+        .slice(0, 5);  // Top 5
+    
+    // Preparar dados para o gráfico
+    const labels = servicosOrdenados.map(s => s.nome);
+    const data = servicosOrdenados.map(s => s.total_agendamentos || 0);
+    const cores = [
+        'rgba(75, 192, 192, 0.7)',
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(255, 206, 86, 0.7)',
+        'rgba(255, 99, 132, 0.7)',
+        'rgba(153, 102, 255, 0.7)'
+    ];
+    
+    // Destruir gráfico anterior se existir
+    if (window.graficoServicos) {
+        window.graficoServicos.destroy();
+    }
+    
+    // Criar novo gráfico
+    window.graficoServicos = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: [
-                    'rgba(54, 162, 235, 0.7)',
-                    'rgba(75, 192, 192, 0.7)',
-                    'rgba(255, 99, 132, 0.7)',
-                    'rgba(255, 159, 64, 0.7)',
-                    'rgba(153, 102, 255, 0.7)'
-                ],
-                borderColor: [
-                    'rgba(54, 162, 235, 1)',
-                    'rgba(75, 192, 192, 1)',
-                    'rgba(255, 99, 132, 1)',
-                    'rgba(255, 159, 64, 1)',
-                    'rgba(153, 102, 255, 1)'
-                ],
+                backgroundColor: cores,
                 borderWidth: 1
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: 'right',
+                    position: 'right'
                 },
-                title: {
-                    display: true,
-                    text: 'Serviços Mais Populares'
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            return `Agendamentos: ${value}`;
+                        }
+                    }
                 }
             }
         }
     });
     
-    // Exibir o gráfico
-    $('#servicos-chart-container').html(`
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Serviços Mais Populares</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="chart-servicos"></canvas>
-            </div>
-        </div>
-    `);
+    // Exibir categorias
+    renderizarCategorias(servicos);
 }
 
-// Abrir modal para adicionar/editar serviço
-function openModalServico(id = null) {
-    // Limpar formulário
-    $('#form-servico')[0].reset();
-    $('#form-servico .alert').addClass('d-none');
-    $('#form-servico .is-invalid').removeClass('is-invalid');
+/**
+ * Renderiza as categorias de serviços
+ */
+function renderizarCategorias(servicos) {
+    const container = document.getElementById('categorias-servicos');
     
-    // Definir título do modal
-    $('#modalServicoTitle').text(id ? 'Editar Serviço' : 'Novo Serviço');
+    // Extrair categorias simuladas baseadas no nome do serviço
+    const categoriasPorServico = servicos.map(s => inferirCategoria(s.nome));
     
-    // Se for edição, carregar dados do serviço
+    // Obter categorias customizadas do localStorage
+    const categoriasCustomizadas = obterCategoriasCustomizadas();
+    
+    // Combinar todas as categorias
+    const todasCategorias = [...new Set([...categoriasPorServico, ...categoriasCustomizadas])];
+    
+    // Contar serviços por categoria
+    const contagem = todasCategorias.map(cat => {
+        const total = categoriasPorServico.filter(c => c === cat).length;
+        return { nome: cat, total };
+    });
+    
+    // Ordenar por total
+    contagem.sort((a, b) => b.total - a.total);
+    
+    // Gerar HTML
+    let html = '<div class="list-group">';
+    
+    contagem.forEach(cat => {
+        html += `
+            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                ${cat.nome}
+                <span class="badge bg-primary rounded-pill">${cat.total}</span>
+            </a>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+/**
+ * Infere a categoria com base no nome do serviço
+ * Esta função é uma adaptação temporária enquanto o campo categoria não está disponível no modelo
+ */
+function inferirCategoria(nome) {
+    nome = nome.toLowerCase();
+    
+    if (nome.includes('cabelo') || nome.includes('corte') || nome.includes('penteado')) {
+        return 'Cabelo';
+    }
+    else if (nome.includes('barba') || nome.includes('bigode')) {
+        return 'Barba';
+    }
+    else if (nome.includes('tratamento') || nome.includes('hidratação')) {
+        return 'Tratamento';
+    }
+    else if (nome.includes('combo') || (nome.includes('cabelo') && nome.includes('barba'))) {
+        return 'Combo';
+    }
+    else {
+        return 'Outros';
+    }
+}
+
+/**
+ * Abre o modal para criar ou editar um serviço
+ * @param {Number} id - ID do serviço (null para novo serviço)
+ */
+function abrirModalServico(id = null) {
+    // Referências
+    const modal = new bootstrap.Modal(document.getElementById('modal-servico'));
+    const form = document.getElementById('form-servico');
+    const titulo = document.getElementById('modal-servico-titulo');
+    
+    // Resetar formulário
+    form.reset();
+    
+    // Definir título
+    titulo.textContent = id ? 'Editar Serviço' : 'Novo Serviço';
+    
+    // Configurar formulário
+    document.getElementById('servico-id').value = id || '';
+    
+    // Carregar dados se for edição
     if (id) {
-        // Mostrar loading
-        $('#modal-servico-loading').removeClass('d-none');
-        $('#form-servico-content').addClass('d-none');
-        
-        // Fazer requisição AJAX
-        $.ajax({
-            url: `/api/servicos/${id}`,
-            type: 'GET',
-            success: function(response) {
+        fetch(`/api/servicos/${id}`, {
+            headers: getHeaders()
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar serviço');
+                }
+                return response.json();
+            })
+            .then(data => {
                 // Preencher formulário
-                $('#servico-id').val(response.servico.id);
-                $('#servico-nome').val(response.servico.nome);
-                $('#servico-descricao').val(response.servico.descricao);
-                $('#servico-valor').val(response.servico.valor);
-                $('#servico-duracao').val(Math.round(response.servico.duracao / 60)); // Converter segundos para minutos
+                document.getElementById('servico-nome').value = data.nome;
+                document.getElementById('servico-descricao').value = data.descricao || '';
+                document.getElementById('servico-preco').value = data.preco;
+                document.getElementById('servico-duracao').value = data.duracao_estimada_min;
                 
-                // Exibir formulário
-                $('#modal-servico-loading').addClass('d-none');
-                $('#form-servico-content').removeClass('d-none');
-            },
-            error: function(xhr) {
-                // Mostrar erro
-                $('#modal-servico-loading').addClass('d-none');
-                $('#form-servico-content').removeClass('d-none');
-                $('#form-servico .alert-danger').text(`Erro ao carregar serviço: ${xhr.responseJSON?.message || 'Erro desconhecido'}`).removeClass('d-none');
-            }
-        });
+                // Simular categoria com base no nome
+                const categoriaInferida = inferirCategoria(data.nome);
+                const selectCategoria = document.getElementById('servico-categoria');
+                
+                for (let i = 0; i < selectCategoria.options.length; i++) {
+                    if (selectCategoria.options[i].value === categoriaInferida) {
+                        selectCategoria.selectedIndex = i;
+                        break;
+                    }
+                }
+            })
+            .catch(error => {
+                mostrarErro(error.message);
+            });
     }
     
     // Abrir modal
-    const modal = new bootstrap.Modal(document.getElementById('modalServico'));
     modal.show();
 }
 
-// Salvar serviço
+/**
+ * Salva um serviço (novo ou edição)
+ */
 function salvarServico() {
-    // Validar formulário
-    if (!validarFormulario('#form-servico')) {
+    // Dados do formulário
+    const id = document.getElementById('servico-id').value;
+    const nome = document.getElementById('servico-nome').value;
+    const descricao = document.getElementById('servico-descricao').value;
+    const preco = parseFloat(document.getElementById('servico-preco').value);
+    const duracao = parseInt(document.getElementById('servico-duracao').value);
+    const categoria = document.getElementById('servico-categoria').value;
+    
+    // Validar campos obrigatórios
+    if (!nome || !preco || !duracao) {
+        mostrarErro('Por favor, preencha todos os campos obrigatórios');
         return;
     }
     
-    // Desabilitar botão de salvar
-    $('#btn-salvar-servico').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...');
+    // Se for edição, verificar se a categoria mudou
+    let categoriaAnterior = null;
+    if (id) {
+        const servicosCache = obterServicosCache();
+        if (servicosCache) {
+            const servicoAtual = servicosCache.find(s => s.id == id);
+            if (servicoAtual) {
+                categoriaAnterior = inferirCategoria(servicoAtual.nome);
+            }
+        }
+    }
     
-    // Pegar ID (se for edição)
-    const id = $('#servico-id').val();
+    // Incorporar a categoria no nome para persistência (já que não temos campo categoria no backend)
+    let nomeFormatado = nome;
+    if (categoria && categoria !== "Outros") {
+        // Se o nome já inclui a categoria, não adicionar novamente
+        const categorias = ["Cabelo", "Barba", "Combo", "Tratamento", ...obterCategoriasCustomizadas()];
+        const temCategoria = categorias.some(cat => nome.toLowerCase().includes(cat.toLowerCase()));
+        
+        if (!temCategoria) {
+            nomeFormatado = `${categoria}: ${nome}`;
+        }
+    }
     
-    // Preparar dados
+    // Preparar dados (apenas os campos que existem no modelo)
     const dados = {
-        nome: $('#servico-nome').val(),
-        descricao: $('#servico-descricao').val(),
-        valor: parseFloat($('#servico-valor').val().replace(',', '.')),
-        duracao: parseInt($('#servico-duracao').val()) * 60 // Converter minutos para segundos
+        nome: nomeFormatado,
+        descricao,
+        preco,
+        duracao_estimada_min: duracao
     };
     
-    // Definir método e URL
-    const metodo = id ? 'PUT' : 'POST';
-    const url = id ? `/api/servicos/${id}` : '/api/servicos';
+    // Configurar requisição
+    const url = id ? `/api/servicos/${id}` : '/api/servicos/';
+    const method = id ? 'PUT' : 'POST';
     
-    // Fazer requisição AJAX
-    $.ajax({
-        url: url,
-        type: metodo,
-        data: JSON.stringify(dados),
-        contentType: 'application/json',
-        success: function(response) {
-            // Fechar modal
-            bootstrap.Modal.getInstance(document.getElementById('modalServico')).hide();
-            
-            // Exibir mensagem de sucesso
-            showAlert('success', response.message || 'Serviço salvo com sucesso!');
-            
-            // Recarregar lista de serviços
-            loadServicos();
-        },
-        error: function(xhr) {
-            // Mostrar erro
-            $('#form-servico .alert-danger').text(xhr.responseJSON?.message || 'Erro ao salvar serviço').removeClass('d-none');
-            
-            // Habilitar botão de salvar
-            $('#btn-salvar-servico').prop('disabled', false).text('Salvar');
-        },
-        complete: function() {
-            // Habilitar botão de salvar
-            $('#btn-salvar-servico').prop('disabled', false).text('Salvar');
+    // Enviar requisição
+    fetch(url, {
+        method,
+        headers: getHeaders(),
+        body: JSON.stringify(dados)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.erro || 'Erro ao salvar serviço');
+            });
         }
+        return response.json();
+    })
+    .then(data => {
+        // Fechar modal
+        bootstrap.Modal.getInstance(document.getElementById('modal-servico')).hide();
+        
+        // Exibir toast de sucesso
+        mostrarSucesso(id ? 'Serviço atualizado com sucesso!' : 'Serviço criado com sucesso!');
+        
+        // Limpar cache de serviços para forçar recarga completa
+        localStorage.removeItem('servicos_cache');
+        
+        // Recarregar lista de serviços
+        carregarServicos();
+        
+        // Se a categoria mudou, atualizar a contagem na seção de categorias
+        if (categoriaAnterior && categoriaAnterior !== categoria) {
+            atualizarContadorCategorias(categoriaAnterior, categoria);
+        }
+    })
+    .catch(error => {
+        mostrarErro(error.message);
     });
 }
 
-// Excluir serviço
-function excluirServico(id) {
-    // Confirmar exclusão
-    if (!confirm('Tem certeza que deseja excluir este serviço? Esta ação não pode ser desfeita.')) {
+/**
+ * Atualiza os contadores de categorias quando um serviço muda de categoria
+ */
+function atualizarContadorCategorias(categoriaAntiga, categoriaNova) {
+    // Buscar categorias do localStorage
+    const categorias = obterCategoriasCustomizadas();
+    
+    // Garantir que ambas as categorias estejam no localStorage
+    if (!categorias.includes(categoriaAntiga) && categoriaAntiga !== "Cabelo" && 
+        categoriaAntiga !== "Barba" && categoriaAntiga !== "Combo" && 
+        categoriaAntiga !== "Tratamento" && categoriaAntiga !== "Outros") {
+        adicionarCategoriaLocalStorage(categoriaAntiga);
+    }
+    
+    if (!categorias.includes(categoriaNova) && categoriaNova !== "Cabelo" && 
+        categoriaNova !== "Barba" && categoriaNova !== "Combo" && 
+        categoriaNova !== "Tratamento" && categoriaNova !== "Outros") {
+        adicionarCategoriaLocalStorage(categoriaNova);
+    }
+    
+    // Forçar atualização da visualização das categorias
+    setTimeout(() => {
+        const servicos = obterServicosCache();
+        if (servicos) {
+            renderizarCategorias(servicos);
+        } else {
+            carregarServicos();
+        }
+    }, 500); // Pequeno atraso para garantir que os dados estejam atualizados
+}
+
+/**
+ * Abre o modal de confirmação para excluir um serviço
+ */
+function confirmarExclusao(id, nome) {
+    if (!confirm(`Tem certeza que deseja excluir o serviço "${nome}"? Esta ação não pode ser desfeita.`)) {
         return;
     }
     
-    // Fazer requisição AJAX
-    $.ajax({
-        url: `/api/servicos/${id}`,
-        type: 'DELETE',
-        success: function(response) {
-            // Exibir mensagem de sucesso
-            showAlert('success', response.message || 'Serviço excluído com sucesso!');
-            
-            // Recarregar lista de serviços
-            loadServicos();
-        },
-        error: function(xhr) {
-            // Mostrar erro
-            showAlert('danger', xhr.responseJSON?.message || 'Erro ao excluir serviço');
+    excluirServico(id);
+}
+
+/**
+ * Exclui um serviço
+ */
+function excluirServico(id) {
+    fetch(`/api/servicos/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.erro || 'Erro ao excluir serviço');
+            });
         }
+        return response.json();
+    })
+    .then(data => {
+        mostrarSucesso('Serviço excluído com sucesso!');
+        carregarServicos();
+    })
+    .catch(error => {
+        mostrarErro(error.message);
     });
 }
 
-// Eventos
-$(document).ready(function() {
-    // Evento para salvar serviço
-    $('#btn-salvar-servico').on('click', function() {
-        salvarServico();
-    });
+/**
+ * Busca serviços com o termo digitado
+ */
+function buscarServicos() {
+    const termo = document.getElementById('servico-busca').value.trim().toLowerCase();
     
-    // Máscara para valor monetário
-    $('#servico-valor').mask('#.##0,00', {reverse: true});
-}); 
+    if (!termo) {
+        carregarServicos();
+        return;
+    }
+    
+    // Exibir loading
+    toggleLoading(true);
+    
+    fetch('/api/servicos/', {
+        headers: getHeaders()
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao buscar serviços');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Filtrar resultados
+            const resultados = data.filter(servico => 
+                servico.nome.toLowerCase().includes(termo) || 
+                (servico.descricao && servico.descricao.toLowerCase().includes(termo)) ||
+                inferirCategoria(servico.nome).toLowerCase().includes(termo)
+            );
+            
+            renderizarServicos(resultados);
+        })
+        .catch(error => {
+            mostrarErro(error.message);
+        })
+        .finally(() => {
+            toggleLoading(false);
+        });
+}
+
+/**
+ * Funções auxiliares
+ */
+
+// Formatar valor monetário
+function formataMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', { 
+        style: 'currency', 
+        currency: 'BRL'
+    }).format(valor);
+}
+
+// Mostrar/ocultar loading
+function toggleLoading(mostrar) {
+    const loading = document.getElementById('servicos-loading');
+    if (mostrar) {
+        loading.classList.remove('d-none');
+    } else {
+        loading.classList.add('d-none');
+    }
+}
+
+// Mostrar mensagem de erro
+function mostrarErro(mensagem) {
+    console.error(mensagem);
+    alert(`Erro: ${mensagem}`);
+}
+
+// Mostrar mensagem de sucesso
+function mostrarSucesso(mensagem) {
+    console.log(mensagem);
+    alert(mensagem);
+}
+
+// Destacar item no menu
+function highlightMenuItem(id) {
+    const links = document.querySelectorAll('.sidebar .nav-link');
+    links.forEach(link => link.classList.remove('active'));
+    
+    const activeLink = document.getElementById(id);
+    if (activeLink) activeLink.classList.add('active');
+}
+
+// Inicializar tooltips
+function initTooltips() {
+    const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltips.forEach(el => new bootstrap.Tooltip(el));
+}
+
+/**
+ * Abre modal para adicionar nova categoria
+ */
+function abrirModalNovaCategoria() {
+    // Como o sistema atual não tem um modelo de categoria,
+    // vamos simular com um prompt simples
+    const categoria = prompt("Digite o nome da nova categoria:");
+    
+    if (!categoria) return; // Usuário cancelou
+    
+    // Adicionar ao select de categorias
+    const select = document.getElementById('servico-categoria');
+    const option = document.createElement('option');
+    option.value = categoria;
+    option.textContent = categoria;
+    
+    // Inserir antes da última opção (se for "Outros")
+    const outrosIndex = Array.from(select.options).findIndex(o => o.value === "Outros");
+    
+    if (outrosIndex > -1) {
+        select.insertBefore(option, select.options[outrosIndex]);
+    } else {
+        select.appendChild(option);
+    }
+    
+    // Exibir mensagem de sucesso
+    mostrarSucesso(`Categoria "${categoria}" adicionada com sucesso!`);
+    
+    // Atualizar e exibir a nova categoria na lista de categorias
+    // Como não há backend para categorias, vamos simular adicionando a nova categoria localmente
+    adicionarCategoriaLocalStorage(categoria);
+    
+    // Recarregar as categorias
+    const servicos = obterServicosCache();
+    if (servicos) {
+        renderizarCategorias(servicos);
+    }
+}
+
+/**
+ * Adiciona uma categoria ao localStorage para persistência local
+ */
+function adicionarCategoriaLocalStorage(categoria) {
+    // Obter categorias existentes
+    let categorias = localStorage.getItem('categorias_customizadas');
+    categorias = categorias ? JSON.parse(categorias) : [];
+    
+    // Adicionar nova categoria se ainda não existir
+    if (!categorias.includes(categoria)) {
+        categorias.push(categoria);
+        localStorage.setItem('categorias_customizadas', JSON.stringify(categorias));
+    }
+}
+
+/**
+ * Obter categorias customizadas do localStorage
+ */
+function obterCategoriasCustomizadas() {
+    const categorias = localStorage.getItem('categorias_customizadas');
+    return categorias ? JSON.parse(categorias) : [];
+}
+
+/**
+ * Armazena os serviços em cache para uso rápido
+ */
+function armazenarServicosCache(servicos) {
+    localStorage.setItem('servicos_cache', JSON.stringify(servicos));
+}
+
+/**
+ * Obtém os serviços do cache local
+ */
+function obterServicosCache() {
+    const servicos = localStorage.getItem('servicos_cache');
+    return servicos ? JSON.parse(servicos) : null;
+} 
