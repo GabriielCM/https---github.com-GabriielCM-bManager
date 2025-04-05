@@ -9,15 +9,21 @@
 {% block content %}
 <div id="produtos">
     <div class="row mb-4">
-        <div class="col-md-8">
+        <div class="col-md-6">
             <div class="input-group">
-                <input type="text" class="form-control" placeholder="Buscar produto por nome ou categoria..." id="produto-busca">
+                <input type="text" class="form-control" placeholder="Buscar produto por nome, código ou descrição..." id="produto-busca">
                 <button class="btn btn-primary" type="button" id="produto-busca-btn">
                     <i class="fas fa-search"></i>
                 </button>
             </div>
         </div>
-        <div class="col-md-4 text-end">
+        <div class="col-md-3">
+            <select class="form-select" id="produto-categoria-filtro">
+                <option value="">Todas categorias</option>
+                <!-- Categorias serão carregadas dinamicamente -->
+            </select>
+        </div>
+        <div class="col-md-3 text-end">
             <button type="button" class="btn btn-success" id="produto-novo-btn">
                 <i class="fas fa-plus me-2"></i>Novo Produto
             </button>
@@ -45,7 +51,7 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="responsive-table">
+                    <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
@@ -53,6 +59,7 @@
                                     <th>Nome</th>
                                     <th>Categoria</th>
                                     <th>Estoque</th>
+                                    <th>Min.</th>
                                     <th>Preço</th>
                                     <th>Status</th>
                                     <th class="text-center">Ações</th>
@@ -128,6 +135,206 @@
                         <p>Não há dados suficientes para gerar o gráfico.</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Cadastro/Edição de Produto -->
+<div class="modal fade" id="modal-produto" tabindex="-1" aria-labelledby="modal-produto-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-produto-label">Novo Produto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-produto">
+                    <input type="hidden" id="produto-id">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="produto-codigo" class="form-label">Código</label>
+                            <input type="text" class="form-control" id="produto-codigo" placeholder="Código do produto">
+                        </div>
+                        <div class="col-md-8">
+                            <label for="produto-nome" class="form-label">Nome <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="produto-nome" required placeholder="Nome do produto">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="produto-categoria" class="form-label">Categoria</label>
+                            <input type="text" class="form-control" id="produto-categoria" list="categorias-list" placeholder="Categoria">
+                            <datalist id="categorias-list">
+                                <!-- Categorias serão carregadas via JavaScript -->
+                            </datalist>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="produto-marca" class="form-label">Marca</label>
+                            <input type="text" class="form-control" id="produto-marca" placeholder="Marca">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="produto-unidade" class="form-label">Unidade</label>
+                            <select class="form-select" id="produto-unidade">
+                                <option value="un">Unidade (un)</option>
+                                <option value="kg">Quilograma (kg)</option>
+                                <option value="g">Grama (g)</option>
+                                <option value="ml">Mililitro (ml)</option>
+                                <option value="l">Litro (l)</option>
+                                <option value="cx">Caixa (cx)</option>
+                                <option value="pc">Pacote (pc)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="produto-preco" class="form-label">Preço <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text">R$</span>
+                                <input type="number" class="form-control" id="produto-preco" step="0.01" min="0" required placeholder="0,00">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="produto-preco-custo" class="form-label">Preço de Custo</label>
+                            <div class="input-group">
+                                <span class="input-group-text">R$</span>
+                                <input type="number" class="form-control" id="produto-preco-custo" step="0.01" min="0" placeholder="0,00">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="produto-estoque" class="form-label">Estoque</label>
+                            <input type="number" class="form-control" id="produto-estoque" min="0" placeholder="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="produto-estoque-minimo" class="form-label">Mínimo</label>
+                            <input type="number" class="form-control" id="produto-estoque-minimo" min="0" placeholder="5">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="produto-descricao" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="produto-descricao" rows="3" placeholder="Descrição do produto"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="produto-imagem" class="form-label">Imagem do Produto</label>
+                        <input type="file" class="form-control" id="produto-imagem" accept="image/*">
+                        <div id="produto-imagem-preview" class="mt-2 d-none">
+                            <img src="" alt="Preview" class="img-thumbnail" style="max-height: 150px;">
+                            <button type="button" class="btn btn-sm btn-danger" id="remover-imagem">Remover</button>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-danger d-none" id="produto-error"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="salvar-produto">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Ajuste de Estoque -->
+<div class="modal fade" id="modal-estoque" tabindex="-1" aria-labelledby="modal-estoque-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-estoque-label">Ajustar Estoque</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-estoque">
+                    <input type="hidden" id="estoque-produto-id">
+                    
+                    <div class="mb-3">
+                        <label for="estoque-produto-nome" class="form-label">Produto</label>
+                        <input type="text" class="form-control" id="estoque-produto-nome" readonly>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="estoque-atual" class="form-label">Estoque Atual</label>
+                            <input type="number" class="form-control" id="estoque-atual" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="estoque-minimo" class="form-label">Estoque Mínimo</label>
+                            <input type="number" class="form-control" id="estoque-minimo" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="estoque-tipo" class="form-label">Tipo de Movimentação</label>
+                        <select class="form-select" id="estoque-tipo" required>
+                            <option value="entrada">Entrada</option>
+                            <option value="saida">Saída</option>
+                            <option value="ajuste">Ajuste Direto</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="estoque-quantidade" class="form-label">Quantidade</label>
+                        <input type="number" class="form-control" id="estoque-quantidade" min="1" required placeholder="Quantidade">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="estoque-motivo" class="form-label">Motivo</label>
+                        <textarea class="form-control" id="estoque-motivo" rows="2" placeholder="Motivo da movimentação"></textarea>
+                    </div>
+                    
+                    <div class="alert alert-danger d-none" id="estoque-error"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="salvar-estoque">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Histórico de Movimentações -->
+<div class="modal fade" id="modal-historico" tabindex="-1" aria-labelledby="modal-historico-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-historico-label">Histórico de Movimentações</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <h5 id="historico-produto-nome" class="mb-3"></h5>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Tipo</th>
+                                <th>Quantidade</th>
+                                <th>Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historico-lista">
+                            <!-- Movimentações serão carregadas via AJAX -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="historico-loading" class="text-center py-4 d-none">
+                    <div class="loading-spinner"></div>
+                    <p>Carregando histórico...</p>
+                </div>
+                
+                <div id="historico-empty" class="text-center py-4 d-none">
+                    <p>Nenhuma movimentação encontrada.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
             </div>
         </div>
     </div>

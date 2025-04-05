@@ -4,14 +4,22 @@ from flask_jwt_extended import jwt_required, get_jwt
 from app import db
 from app.models.produto import Produto
 from app.models.movimento_estoque import MovimentoEstoque
+from sqlalchemy import func
 
 produtos_bp = Blueprint('produtos', __name__)
 
 class ProdutoSchema(Schema):
+    codigo = fields.Str(allow_none=True)
     nome = fields.Str(required=True, validate=validate.Length(min=3, max=100))
     descricao = fields.Str(allow_none=True)
+    categoria = fields.Str(allow_none=True)
+    marca = fields.Str(allow_none=True)
+    unidade_medida = fields.Str(allow_none=True)
     preco = fields.Float(required=True, validate=validate.Range(min=0))
+    preco_custo = fields.Float(allow_none=True, validate=validate.Range(min=0))
     quantidade_estoque = fields.Integer(default=0, validate=validate.Range(min=0))
+    estoque_minimo = fields.Integer(default=5, validate=validate.Range(min=0))
+    imagem_url = fields.Str(allow_none=True)
 
 class MovimentoEstoqueSchema(Schema):
     tipo = fields.Str(required=True, validate=validate.OneOf(['entrada', 'saida', 'ajuste']))
@@ -24,22 +32,31 @@ def verificar_permissao_admin():
     return jwt_data.get('perfil') == 'admin'
 
 @produtos_bp.route('/', methods=['GET'])
-@jwt_required()
 def listar_produtos():
     # Parâmetros de consulta para filtragem e paginação
     busca = request.args.get('busca', '')
+    categoria = request.args.get('categoria', '')
+    estoque_baixo = request.args.get('estoque_baixo') == 'true'
     pagina = int(request.args.get('pagina', 1))
     por_pagina = int(request.args.get('por_pagina', 10))
     
     # Iniciar consulta
     query = Produto.query
     
-    # Aplicar filtro de busca se fornecido
+    # Aplicar filtros
     if busca:
         query = query.filter(db.or_(
             Produto.nome.ilike(f'%{busca}%'),
-            Produto.descricao.ilike(f'%{busca}%')
+            Produto.descricao.ilike(f'%{busca}%'),
+            Produto.codigo.ilike(f'%{busca}%'),
+            Produto.marca.ilike(f'%{busca}%')
         ))
+    
+    if categoria:
+        query = query.filter(Produto.categoria == categoria)
+    
+    if estoque_baixo:
+        query = query.filter(Produto.quantidade_estoque <= Produto.estoque_minimo)
     
     # Ordenar e paginar resultados
     query = query.order_by(Produto.nome.asc())
@@ -53,8 +70,12 @@ def listar_produtos():
         'items': [produto.to_dict() for produto in resultados.items]
     }), 200
 
+@produtos_bp.route('/categorias', methods=['GET'])
+def listar_categorias():
+    categorias = db.session.query(Produto.categoria).filter(Produto.categoria != None).distinct().all()
+    return jsonify([c[0] for c in categorias if c[0]]), 200
+
 @produtos_bp.route('/<int:id>', methods=['GET'])
-@jwt_required()
 def obter_produto(id):
     produto = Produto.query.get(id)
     
@@ -80,12 +101,25 @@ def criar_produto():
     if produto_existente:
         return jsonify({"erro": "Nome de produto já cadastrado"}), 400
     
+    # Verificar se código já existe, se fornecido
+    if data.get('codigo'):
+        codigo_existente = Produto.query.filter_by(codigo=data['codigo']).first()
+        if codigo_existente:
+            return jsonify({"erro": "Código de produto já cadastrado"}), 400
+    
     # Criar novo produto
     produto = Produto(
+        codigo=data.get('codigo'),
         nome=data['nome'],
         descricao=data.get('descricao'),
+        categoria=data.get('categoria'),
+        marca=data.get('marca'),
+        unidade_medida=data.get('unidade_medida', 'un'),
         preco=data['preco'],
-        quantidade_estoque=data.get('quantidade_estoque', 0)
+        preco_custo=data.get('preco_custo'),
+        quantidade_estoque=data.get('quantidade_estoque', 0),
+        estoque_minimo=data.get('estoque_minimo', 5),
+        imagem_url=data.get('imagem_url')
     )
     
     db.session.add(produto)
@@ -130,18 +164,22 @@ def atualizar_produto(id):
         if produto_existente:
             return jsonify({"erro": "Nome de produto já cadastrado"}), 400
     
+    # Verificar se código já existe (excluindo o produto atual)
+    if 'codigo' in data and data['codigo'] != produto.codigo:
+        codigo_existente = Produto.query.filter_by(codigo=data['codigo']).first()
+        if codigo_existente:
+            return jsonify({"erro": "Código de produto já cadastrado"}), 400
+    
     # Verificar se está atualizando o estoque
     estoque_anterior = produto.quantidade_estoque
     
     # Atualizar produto
-    if 'nome' in data:
-        produto.nome = data['nome']
-    if 'descricao' in data:
-        produto.descricao = data['descricao']
-    if 'preco' in data:
-        produto.preco = data['preco']
+    for campo, valor in data.items():
+        if campo != 'quantidade_estoque':  # Estoque tratado separadamente
+            setattr(produto, campo, valor)
+    
+    # Se estiver atualizando o estoque, registrar movimento
     if 'quantidade_estoque' in data:
-        # Registrar movimento de ajuste de estoque
         quantidade_ajuste = data['quantidade_estoque']
         diferenca = quantidade_ajuste - estoque_anterior
         
@@ -211,16 +249,16 @@ def movimentar_estoque(id):
     except ValidationError as err:
         return jsonify({"erro": "Dados inválidos", "detalhes": err.messages}), 400
     
-    # Atualizar estoque e registrar movimento
     tipo = data['tipo']
     quantidade = data['quantidade']
     motivo = data.get('motivo', '')
     
     try:
         # Atualizar estoque do produto
+        estoque_anterior = produto.quantidade_estoque
         produto.atualizar_estoque(quantidade, tipo)
         
-        # Registrar movimento
+        # Registrar movimento de estoque
         movimento = MovimentoEstoque(
             produto_id=produto.id,
             tipo=tipo,
@@ -232,9 +270,14 @@ def movimentar_estoque(id):
         db.session.commit()
         
         return jsonify({
-            "mensagem": f"Estoque atualizado com sucesso. {tipo.capitalize()} de {quantidade} unidades.",
+            "mensagem": f"Estoque de '{produto.nome}' atualizado com sucesso",
             "produto": produto.to_dict(),
-            "movimento": movimento.to_dict()
+            "movimento": {
+                "tipo": tipo,
+                "quantidade": quantidade,
+                "estoque_anterior": estoque_anterior,
+                "estoque_atual": produto.quantidade_estoque
+            }
         }), 200
         
     except ValueError as e:
@@ -252,23 +295,70 @@ def listar_movimentos(id):
     if not produto:
         return jsonify({"erro": "Produto não encontrado"}), 404
     
-    # Obter movimentos de estoque ordenados por data
-    movimentos = MovimentoEstoque.query.filter_by(produto_id=id)\
-        .order_by(MovimentoEstoque.created_at.desc()).all()
+    movimentos = MovimentoEstoque.query.filter_by(produto_id=id).\
+        order_by(MovimentoEstoque.created_at.desc()).all()
     
-    return jsonify([movimento.to_dict() for movimento in movimentos]), 200
+    return jsonify([{
+        'id': m.id,
+        'tipo': m.tipo,
+        'quantidade': m.quantidade,
+        'motivo': m.motivo,
+        'data': m.created_at
+    } for m in movimentos]), 200
 
 @produtos_bp.route('/estoque-baixo', methods=['GET'])
-@jwt_required()
 def produtos_estoque_baixo():
-    # Verificar permissão (apenas admin pode ver relatório de estoque baixo)
-    if not verificar_permissao_admin():
-        return jsonify({"erro": "Permissão negada"}), 403
+    # Consultar produtos com estoque abaixo do mínimo
+    produtos = Produto.query.filter(
+        Produto.quantidade_estoque <= Produto.estoque_minimo
+    ).order_by(
+        (Produto.quantidade_estoque / Produto.estoque_minimo).asc()
+    ).all()
     
-    # Limite de estoque considerado baixo
+    return jsonify([produto.to_dict() for produto in produtos]), 200
+
+@produtos_bp.route('/mais-vendidos', methods=['GET'])
+def produtos_mais_vendidos():
+    # Consultar os produtos mais vendidos usando SQLAlchemy
+    from app.models.venda_item import VendaItem
+    
+    # Período (opcional)
+    periodo = request.args.get('periodo', 'mes')
     limite = int(request.args.get('limite', 5))
     
-    # Buscar produtos com estoque abaixo do limite
-    produtos = Produto.query.filter(Produto.quantidade_estoque < limite).all()
+    # Filtrar por período
+    filtro_data = None
+    if periodo == 'mes':
+        # Último mês
+        from datetime import datetime, timedelta
+        data_inicio = datetime.now() - timedelta(days=30)
+        filtro_data = VendaItem.created_at >= data_inicio
+    elif periodo == 'semana':
+        # Última semana
+        from datetime import datetime, timedelta
+        data_inicio = datetime.now() - timedelta(days=7)
+        filtro_data = VendaItem.created_at >= data_inicio
     
-    return jsonify([produto.to_dict() for produto in produtos]), 200 
+    # Consulta agrupada para calcular total vendido por produto
+    produtos_vendidos = db.session.query(
+        Produto.id,
+        Produto.nome,
+        func.sum(VendaItem.quantidade).label('total_vendido')
+    ).join(
+        VendaItem, VendaItem.produto_id == Produto.id
+    )
+    
+    if filtro_data:
+        produtos_vendidos = produtos_vendidos.filter(filtro_data)
+    
+    produtos_vendidos = produtos_vendidos.group_by(
+        Produto.id, Produto.nome
+    ).order_by(
+        func.sum(VendaItem.quantidade).desc()
+    ).limit(limite).all()
+    
+    return jsonify([{
+        'id': p.id,
+        'nome': p.nome,
+        'total_vendido': int(p.total_vendido)
+    } for p in produtos_vendidos]), 200 
