@@ -2,6 +2,12 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Página de produtos carregada com sucesso!');
     
+    // Verificar se o Bootstrap está disponível
+    if (typeof bootstrap === 'undefined') {
+        console.error('Erro: Bootstrap não encontrado. Os modais podem não funcionar corretamente.');
+        alert('Erro de carregamento: alguns recursos podem não funcionar corretamente. Por favor, recarregue a página.');
+    }
+    
     // Inicializar página
     inicializarPagina();
     
@@ -95,27 +101,31 @@ function configurarEventos() {
     document.getElementById('produtos-lista').addEventListener('click', function(e) {
         const target = e.target;
         
+        // Verificar se o clique foi no botão ou no ícone dentro do botão
+        const botao = target.closest('.editar-produto, .ajustar-estoque, .ver-historico, .excluir-produto');
+        if (!botao) return;
+        
         // Editar produto
-        if (target.classList.contains('editar-produto')) {
-            const id = target.getAttribute('data-id');
+        if (botao.classList.contains('editar-produto')) {
+            const id = botao.getAttribute('data-id');
             abrirModalProduto(id);
         }
         
         // Ajustar estoque
-        if (target.classList.contains('ajustar-estoque')) {
-            const id = target.getAttribute('data-id');
+        if (botao.classList.contains('ajustar-estoque')) {
+            const id = botao.getAttribute('data-id');
             abrirModalEstoque(id);
         }
         
         // Ver histórico
-        if (target.classList.contains('ver-historico')) {
-            const id = target.getAttribute('data-id');
+        if (botao.classList.contains('ver-historico')) {
+            const id = botao.getAttribute('data-id');
             abrirModalHistorico(id);
         }
         
         // Excluir produto
-        if (target.classList.contains('excluir-produto')) {
-            const id = target.getAttribute('data-id');
+        if (botao.classList.contains('excluir-produto')) {
+            const id = botao.getAttribute('data-id');
             confirmarExclusao(id);
         }
     });
@@ -373,6 +383,9 @@ function abrirModalProduto(id = null) {
     document.getElementById('produto-imagem-preview').classList.add('d-none');
     
     const modalTitle = document.getElementById('modal-produto-label');
+    // Criar o modal usando a função de utilidade
+    const modal = criarModal('modal-produto');
+    if (!modal) return;
     
     if (id) {
         // Edição de produto existente
@@ -407,7 +420,6 @@ function abrirModalProduto(id = null) {
                 }
                 
                 // Abrir modal
-                const modal = new bootstrap.Modal(document.getElementById('modal-produto'));
                 modal.show();
             })
             .catch(error => {
@@ -420,7 +432,6 @@ function abrirModalProduto(id = null) {
         document.getElementById('produto-id').value = '';
         
         // Abrir modal
-        const modal = new bootstrap.Modal(document.getElementById('modal-produto'));
         modal.show();
     }
 }
@@ -431,6 +442,10 @@ function abrirModalEstoque(id) {
     document.getElementById('form-estoque').reset();
     document.getElementById('estoque-error').classList.add('d-none');
     document.getElementById('estoque-produto-id').value = id;
+    
+    // Criar o modal usando a função de utilidade
+    const modal = criarModal('modal-estoque');
+    if (!modal) return;
     
     // Carregar dados do produto
     fetch(`/api/produtos/${id}`)
@@ -447,7 +462,6 @@ function abrirModalEstoque(id) {
             document.getElementById('estoque-minimo').value = produto.estoque_minimo;
             
             // Abrir modal
-            const modal = new bootstrap.Modal(document.getElementById('modal-estoque'));
             modal.show();
         })
         .catch(error => {
@@ -463,8 +477,11 @@ function abrirModalHistorico(id) {
     document.getElementById('historico-loading').classList.remove('d-none');
     document.getElementById('historico-empty').classList.add('d-none');
     
+    // Criar o modal usando a função de utilidade
+    const modal = criarModal('modal-historico');
+    if (!modal) return;
+    
     // Abrir modal
-    const modal = new bootstrap.Modal(document.getElementById('modal-historico'));
     modal.show();
     
     // Carregar dados do produto
@@ -500,7 +517,7 @@ function abrirModalHistorico(id) {
                     // Formatar data
                     const data = new Date(mov.data);
                     const dataFormatada = data.toLocaleDateString('pt-BR') + ' ' + 
-                                         data.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+                                        data.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
                     
                     // Determinar classe de acordo com o tipo
                     let tipoClasse = '';
@@ -596,7 +613,11 @@ function salvarProduto() {
     })
     .then(data => {
         // Fechar modal
-        bootstrap.Modal.getInstance(document.getElementById('modal-produto')).hide();
+        const modalElement = document.getElementById('modal-produto');
+        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
         
         // Recarregar lista
         carregarProdutos();
@@ -663,7 +684,11 @@ function salvarAjusteEstoque() {
     })
     .then(data => {
         // Fechar modal
-        bootstrap.Modal.getInstance(document.getElementById('modal-estoque')).hide();
+        const modalElement = document.getElementById('modal-estoque');
+        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
         
         // Recarregar lista
         carregarProdutos();
@@ -825,6 +850,34 @@ function mostrarAlerta(tipo, mensagem) {
             document.body.removeChild(alerta);
         }, 300);
     }, 5000);
+}
+
+// Função de utilidade para criar um modal de forma segura
+function criarModal(id) {
+    try {
+        const elemento = document.getElementById(id);
+        if (!elemento) {
+            console.error(`Elemento com ID ${id} não encontrado`);
+            return null;
+        }
+        
+        if (typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+            console.error('Biblioteca Bootstrap não carregada corretamente');
+            return null;
+        }
+        
+        // Verificar se já existe uma instância do modal
+        let modalInstance = bootstrap.Modal.getInstance(elemento);
+        if (!modalInstance) {
+            modalInstance = new bootstrap.Modal(elemento);
+        }
+        
+        return modalInstance;
+    } catch (error) {
+        console.error('Erro ao criar modal:', error);
+        mostrarAlerta('erro', 'Erro ao abrir janela. Por favor, recarregue a página.');
+        return null;
+    }
 }
 
 // Formatar valor para moeda
