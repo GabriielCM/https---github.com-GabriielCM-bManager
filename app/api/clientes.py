@@ -222,4 +222,23 @@ def listar_clientes_recentes():
     # Buscar os 5 clientes mais recentes
     clientes_recentes = Cliente.query.order_by(Cliente.created_at.desc()).limit(5).all()
     
-    return jsonify([cliente.to_dict() for cliente in clientes_recentes]), 200 
+    return jsonify([cliente.to_dict() for cliente in clientes_recentes]), 200
+
+@clientes_bp.route('/busca', methods=['GET'])
+@jwt_opcional
+def buscar_clientes():
+    termo = request.args.get('termo', '')
+    
+    if not termo or len(termo) < 2:
+        return jsonify([]), 200
+    
+    # Buscar clientes pelo termo (nome, telefone ou email)
+    clientes = Cliente.query.filter(
+        db.or_(
+            Cliente.nome.ilike(f'%{termo}%'),
+            Cliente.telefone.ilike(f'%{termo}%'),
+            Cliente.email.ilike(f'%{termo}%')
+        )
+    ).limit(10).all()
+    
+    return jsonify([cliente.to_dict() for cliente in clientes]), 200 

@@ -195,22 +195,167 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Nova Venda -->
+<div class="modal fade" id="nova-venda-modal" tabindex="-1" aria-labelledby="nova-venda-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="nova-venda-modal-label">Nova Venda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="cliente-venda" class="form-label">Cliente</label>
+                        <div class="input-group">
+                            <select class="form-select" id="cliente-venda">
+                                <option value="">Selecione um cliente...</option>
+                                <!-- Os clientes serão carregados via JavaScript -->
+                            </select>
+                        </div>
+                        <div id="cliente-selecionado" class="mt-2 d-none">
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-primary me-2">Cliente</span>
+                                <span id="cliente-nome-display"></span>
+                                <button type="button" class="btn btn-sm btn-link text-danger ms-2" id="limpar-cliente-btn">Remover</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="barbeiro-venda" class="form-label">Barbeiro</label>
+                        <div class="input-group">
+                            <select class="form-select" id="barbeiro-venda">
+                                <option value="">Selecione um barbeiro...</option>
+                                <!-- Os barbeiros serão carregados via JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="produto-venda" class="form-label">Produtos Disponíveis</label>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-hover" id="produtos-disponiveis-table">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Preço</th>
+                                        <th>Estoque</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="produtos-disponiveis">
+                                    <!-- Lista de produtos carregada via JavaScript -->
+                                </tbody>
+                            </table>
+                            <div id="produtos-loading" class="text-center py-4">
+                                <div class="spinner-border"></div>
+                                <p>Carregando produtos...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive mb-3">
+                    <table class="table table-striped" id="carrinho-table">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th style="width: 120px;">Quantidade</th>
+                                <th style="width: 140px;">Valor Unit.</th>
+                                <th style="width: 100px;">Desconto %</th>
+                                <th style="width: 120px;">Subtotal</th>
+                                <th style="width: 80px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="carrinho-items">
+                            <!-- Itens do carrinho serão adicionados aqui via JavaScript -->
+                        </tbody>
+                    </table>
+                    <div id="carrinho-vazio" class="alert alert-info">
+                        <i class="fas fa-shopping-cart me-2"></i> Carrinho vazio. Adicione produtos para concluir a venda.
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="venda-observacao" class="form-label">Observações</label>
+                            <textarea class="form-control" id="venda-observacao" rows="3" placeholder="Observações sobre a venda..."></textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Subtotal:</span>
+                                    <span id="venda-subtotal">R$ 0,00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <div>
+                                        <span>Desconto (R$):</span>
+                                        <small id="venda-desconto-percent" class="text-muted">(0%)</small>
+                                    </div>
+                                    <div class="input-group input-group-sm" style="width: 120px;">
+                                        <span class="input-group-text">R$</span>
+                                        <input type="number" class="form-control text-end" id="venda-desconto" value="0" min="0" step="0.01">
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Imposto (%):</span>
+                                    <div class="input-group input-group-sm" style="width: 120px;">
+                                        <input type="number" class="form-control text-end" id="venda-imposto" value="0" min="0" step="0.1">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="mb-0">TOTAL:</h5>
+                                    <h5 class="mb-0 text-primary" id="venda-total">R$ 0,00</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="limpar-venda-btn">
+                    <i class="fas fa-trash me-2"></i>Limpar
+                </button>
+                <button type="button" class="btn btn-success" id="finalizar-venda-btn" disabled>
+                    <i class="fas fa-check me-2"></i>Finalizar Venda
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes da Venda -->
+<div class="modal fade" id="detalhes-venda-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes da Venda</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" id="detalhes-venda-content">
+                <!-- Conteúdo será preenchido via JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" id="imprimir-comprovante-btn">
+                    <i class="fas fa-print me-2"></i>Imprimir Comprovante
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
-<!-- Script para a página de vendas -->
-<script src="/static/js/vendas.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Página de vendas carregada com sucesso!');
-        
-        // Destacar o link de vendas no sidebar como ativo
-        const vendasLink = document.getElementById('vendas-link');
-        if (vendasLink) {
-            const sidebarLinks = document.querySelectorAll('.nav-link');
-            sidebarLinks.forEach(link => link.classList.remove('active'));
-            vendasLink.classList.add('active');
-        }
-    });
-</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script src="{{ url_for('static', filename='js/vendas.js') }}"></script>
 {% endblock %} 

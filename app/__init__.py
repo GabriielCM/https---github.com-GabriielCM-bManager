@@ -41,10 +41,26 @@ def create_app(config_class=None):
     jwt.init_app(app)
     bcrypt.init_app(app)
     
-    # Registrar blueprints
+    # Registrar blueprints para API
+    register_api_blueprints(app)
+    
+    # Registrar blueprint principal (rotas de página)
+    from app.routes import routes_bp
+    app.register_blueprint(routes_bp)
+    
+    # Adicionar uma rota para /api para verificação de disponibilidade
+    @app.route('/api')
+    def api_index():
+        return jsonify({"status": "ok", "message": "API B-Manager disponível"})
+    
+    return app
+
+def register_api_blueprints(app):
+    # Autenticação
     from app.auth import auth_bp
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     
+    # API endpoints
     from app.api.barbeiros import barbeiros_bp
     app.register_blueprint(barbeiros_bp, url_prefix='/api/barbeiros')
     
@@ -64,14 +80,4 @@ def create_app(config_class=None):
     app.register_blueprint(vendas_bp, url_prefix='/api/vendas')
     
     from app.api.caixa import caixa_bp
-    app.register_blueprint(caixa_bp, url_prefix='/api/caixa')
-    
-    from app.routes import routes_bp
-    app.register_blueprint(routes_bp)
-    
-    # Adicionar uma rota para /api para verificação de disponibilidade
-    @app.route('/api')
-    def api_index():
-        return jsonify({"status": "ok", "message": "API B-Manager disponível"})
-    
-    return app 
+    app.register_blueprint(caixa_bp, url_prefix='/api/caixa') 

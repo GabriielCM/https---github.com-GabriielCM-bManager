@@ -48,21 +48,36 @@ const API = {
             
             // Verificar se a resposta é 401 (não autorizado)
             if (response.status === 401) {
-                // Limpar token e dados de usuário
-                Auth.logout();
-                // Redirecionar para a página de login
-                window.location.href = '/';
-                throw new Error('Sessão expirada. Por favor, faça login novamente.');
+                // Tentar renovar o token e tentar novamente
+                const refreshed = await this.refreshToken();
+                if (refreshed) {
+                    // Tentar novamente com o novo token
+                    options.headers = this.getHeaders(includeAuth);
+                    return this.call(endpoint, method, data, includeAuth);
+                } else {
+                    // Limpar token e dados de usuário
+                    Auth.logout();
+                    // Redirecionar para a página de login
+                    window.location.href = '/login';
+                    throw new Error('Sessão expirada. Por favor, faça login novamente.');
+                }
+            }
+            
+            // Lidar com erro 422 (Unprocessable Entity)
+            if (response.status === 422) {
+                const responseData = await response.json();
+                console.error('Erro de validação:', responseData);
+                throw new Error(responseData.erro || responseData.message || 'Erro de validação ou token inválido');
+            }
+            
+            // Para outros códigos de erro
+            if (!response.ok) {
+                const responseData = await response.json();
+                throw new Error(responseData.erro || responseData.message || `Erro ${response.status} na requisição`);
             }
             
             // Parsear resposta como JSON
             const responseData = await response.json();
-            
-            // Se a resposta não for bem sucedida, lançar erro
-            if (!response.ok) {
-                throw new Error(responseData.erro || 'Erro na requisição');
-            }
-            
             return responseData;
         } catch (error) {
             console.error(`Erro na chamada à API (${endpoint}):`, error);
@@ -70,10 +85,72 @@ const API = {
         }
     },
     
+    // Renovar token
+    refreshToken: async function() {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) return false;
+        
+        try {
+            const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${refreshToken}`
+                }
+            });
+            
+            if (!response.ok) return false;
+            
+            const data = await response.json();
+            localStorage.setItem('token', data.access_token);
+            AppState.token = data.access_token;
+            
+            return true;
+        } catch (error) {
+            console.error('Erro ao renovar token:', error);
+            return false;
+        }
+    },
+    
     // Autenticação
     auth: {
         login: async function(email, senha) {
-            return API.call('/auth/login', 'POST', { email, senha }, false);
+            try {
+                const response = await API.call('/auth/login', 'POST', { email, senha }, false);
+                
+                // Armazenar tokens e dados do usuário
+                if (response.access_token) {
+                    localStorage.setItem('token', response.access_token);
+                    AppState.token = response.access_token;
+                }
+                
+                if (response.refresh_token) {
+                    localStorage.setItem('refresh_token', response.refresh_token);
+                }
+                
+                if (response.usuario) {
+                    localStorage.setItem('usuario', JSON.stringify(response.usuario));
+                    AppState.usuario = response.usuario;
+                }
+                
+                return response;
+            } catch (error) {
+                console.error('Erro no login:', error);
+                throw error;
+            }
+        },
+        
+        logout: function() {
+            // Limpar tokens e dados
+            localStorage.removeItem('token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('usuario');
+            
+            // Atualizar estado
+            AppState.token = null;
+            AppState.usuario = null;
+            
+            // Redirecionar para login
+            window.location.href = '/login';
         },
         
         register: async function(userData) {
@@ -150,19 +227,8 @@ const Auth = {
             }
             
             try {
-                // Tentar fazer login
-                const response = await API.auth.login(email, senha);
-                
-                // Login bem-sucedido
-                console.log('Login bem-sucedido:', response);
-                
-                // Salvar token e dados do usuário
-                localStorage.setItem('token', response.token);
-                localStorage.setItem('usuario', JSON.stringify(response.usuario));
-                
-                // Atualizar estado da aplicação
-                AppState.token = response.token;
-                AppState.usuario = response.usuario;
+                // Tentar fazer login usando a função API.auth.login
+                await API.auth.login(email, senha);
                 
                 // Redirecionar para a página principal
                 window.location.href = '/';
@@ -183,19 +249,12 @@ const Auth = {
         if (!logoutBtn) return;
         
         logoutBtn.addEventListener('click', () => {
-            this.logout();
-            window.location.href = '/';
+            API.auth.logout();
         });
     },
     
     logout: function() {
-        // Limpar dados de autenticação
-        localStorage.removeItem('token');
-        localStorage.removeItem('usuario');
-        
-        // Atualizar estado da aplicação
-        AppState.token = null;
-        AppState.usuario = null;
+        API.auth.logout();
     },
     
     checkAuthentication: function() {

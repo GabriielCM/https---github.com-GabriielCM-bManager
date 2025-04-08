@@ -329,4 +329,23 @@ def produtos_mais_vendidos():
             'total_vendido': 0  # Valor fictício já que não temos dados reais de vendas
         } for p in produtos]), 200
     except Exception as e:
-        return jsonify({"erro": str(e)}), 500 
+        return jsonify({"erro": str(e)}), 500
+
+@produtos_bp.route('/busca', methods=['GET'])
+def buscar_produtos():
+    termo = request.args.get('termo', '')
+    
+    if not termo or len(termo) < 2:
+        return jsonify([]), 200
+    
+    # Buscar produtos pelo termo (nome, código, descrição ou marca)
+    produtos = Produto.query.filter(
+        db.or_(
+            Produto.nome.ilike(f'%{termo}%'),
+            Produto.codigo.ilike(f'%{termo}%'),
+            Produto.descricao.ilike(f'%{termo}%'),
+            Produto.marca.ilike(f'%{termo}%')
+        )
+    ).limit(10).all()
+    
+    return jsonify([produto.to_dict() for produto in produtos]), 200 

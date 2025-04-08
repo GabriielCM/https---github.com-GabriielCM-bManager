@@ -101,15 +101,34 @@ function refreshTokenAsync() {
                 // Atualizar token no localStorage
                 localStorage.setItem('token', response.access_token);
                 
+                // Sincronizar com AppState do app.js se existir
+                if (typeof AppState !== 'undefined') {
+                    AppState.token = response.access_token;
+                }
+                
                 resolve(response.access_token);
             },
             error: function(xhr, status, error) {
                 console.error('Erro ao renovar token:', xhr.responseText);
                 
-                // Limpar tokens e dados do usuário
-                localStorage.removeItem('token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('usuario');
+                // Verificar se o erro é 401 (token inválido/expirado)
+                if (xhr.status === 401) {
+                    // Limpar tokens e dados do usuário
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('usuario');
+                    
+                    // Sincronizar com AppState do app.js se existir
+                    if (typeof AppState !== 'undefined') {
+                        AppState.token = null;
+                        AppState.usuario = null;
+                    }
+                    
+                    // Redirecionar para login após um pequeno delay
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 100);
+                }
                 
                 reject(error);
             }
