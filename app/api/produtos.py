@@ -5,6 +5,7 @@ from app import db
 from app.models.produto import Produto
 from app.models.movimento_estoque import MovimentoEstoque
 from sqlalchemy import func
+from flask import current_app
 
 produtos_bp = Blueprint('produtos', __name__)
 
@@ -303,15 +304,39 @@ def listar_movimentos(id):
     } for m in movimentos]), 200
 
 @produtos_bp.route('/estoque-baixo', methods=['GET'])
-def produtos_estoque_baixo():
-    # Consultar produtos com estoque abaixo do mínimo
-    produtos = Produto.query.filter(
-        Produto.quantidade_estoque <= Produto.estoque_minimo
-    ).order_by(
-        (Produto.quantidade_estoque / Produto.estoque_minimo).asc()
-    ).all()
-    
-    return jsonify([produto.to_dict() for produto in produtos]), 200
+def listar_produtos_estoque_baixo():
+    """Listar produtos com estoque abaixo do mínimo definido"""
+    try:
+        # Buscar produtos com estoque baixo
+        produtos = Produto.query.filter(Produto.quantidade_estoque <= Produto.estoque_minimo).all()
+        
+        # Limitar a 10 produtos
+        produtos = produtos[:10]
+        
+        # Serializar resultados
+        resultado = []
+        for produto in produtos:
+            resultado.append({
+                'id': produto.id,
+                'nome': produto.nome,
+                'descricao': produto.descricao,
+                'preco_venda': float(produto.preco),
+                'quantidade': produto.quantidade_estoque,
+                'estoque_minimo': produto.estoque_minimo
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'produtos': resultado
+        }), 200
+        
+    except Exception as e:
+        current_app.logger.error(f"Erro ao listar produtos com estoque baixo: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Erro ao listar produtos com estoque baixo',
+            'error': str(e)
+        }), 500
 
 @produtos_bp.route('/mais-vendidos', methods=['GET'])
 def produtos_mais_vendidos():

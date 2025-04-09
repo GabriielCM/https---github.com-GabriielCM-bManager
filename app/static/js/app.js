@@ -231,7 +231,7 @@ const Auth = {
                 await API.auth.login(email, senha);
                 
                 // Redirecionar para a página principal
-                window.location.href = '/';
+                window.location.href = '/menu-principal';
             } catch (error) {
                 console.error('Erro ao fazer login:', error);
                 
@@ -328,6 +328,15 @@ document.addEventListener('DOMContentLoaded', function() {
 // Inicializar links do sidebar
 function initSidebarLinks() {
     console.log('Inicializando links do sidebar');
+    
+    // Home link
+    const homeLink = document.getElementById('home-link');
+    if (homeLink) {
+        homeLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = '/menu-principal';
+        });
+    }
     
     // Link para agenda - permitir navegação normal para a página dedicada
     const agendaLink = document.getElementById('agenda-link');

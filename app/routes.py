@@ -5,7 +5,12 @@ routes_bp = Blueprint('routes', __name__)
 
 @routes_bp.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('pages/menu_principal.html')
+
+@routes_bp.route('/menu-principal')
+def menu_principal():
+    """Rota para o menu principal"""
+    return render_template('pages/menu_principal.html')
 
 @routes_bp.route('/agenda')
 def agenda():

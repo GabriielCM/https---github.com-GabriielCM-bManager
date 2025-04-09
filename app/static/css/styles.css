@@ -870,23 +870,149 @@ main {
 
 /* Sidebar */
 .sidebar {
+    width: 250px;
+    height: 100vh;
     position: fixed;
     top: 0;
     left: 0;
-    bottom: 0;
-    z-index: 100;
-    padding: 48px 0 0;
-    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
-    background-color: #343a40;
+    z-index: 1030;
+    overflow-y: auto;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-.sidebar-sticky {
+.col-auto {
+    width: 250px;
+    flex-shrink: 0;
+}
+
+@media (min-width: 992px) {
+    .col {
+        margin-left: 250px;
+        width: calc(100% - 250px);
+    }
+}
+
+@media (max-width: 991.98px) {
+    .col {
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    .col-auto {
+        width: 0;
+    }
+}
+
+/* Quando a tela estiver em modo móvel e o menu lateral estiver aberto, remover o padding */
+body.offcanvas-active .col {
+    padding-left: 0;
+}
+
+.main-content {
+    margin-left: 250px;
+    width: calc(100% - 250px);
+    min-height: 100vh;
+}
+
+@media (max-width: 991.98px) {
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+.welcome-header {
+    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    padding: 3rem 0;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+}
+
+.menu-principal-container {
+    padding: 2rem;
+}
+
+@media (max-width: 768px) {
+    .menu-principal-container {
+        padding: 1rem;
+    }
+    
+    .welcome-header {
+        padding: 1.5rem 0;
+    }
+    
+    .welcome-header .display-4 {
+        font-size: 1.75rem;
+    }
+}
+
+.menu-grid {
+    margin-bottom: 2rem;
+}
+
+.menu-card {
+    border-radius: 12px;
+    padding: 1.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
     position: relative;
-    top: 0;
-    height: calc(100vh - 48px);
-    padding-top: 0.5rem;
-    overflow-x: hidden;
-    overflow-y: auto;
+    transition: all 0.3s ease;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.menu-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.menu-card::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    z-index: 0;
+}
+
+.menu-card-icon {
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.menu-card-content {
+    position: relative;
+    z-index: 1;
+}
+
+.menu-card-content h3 {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.menu-card-content p {
+    margin-bottom: 0;
+    opacity: 0.9;
+}
+
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    background-color: #4e73df;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
 }
 
 /* Calendário de agendamentos */
@@ -1050,4 +1176,188 @@ main {
     background-color: #007bff;
     border-color: #007bff;
     color: #fff;
+}
+
+/* Estilos para o menu principal */
+.welcome-header {
+    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+    padding: 3rem 0;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+}
+
+.menu-principal-container {
+    padding: 2rem;
+}
+
+.menu-grid {
+    margin-bottom: 2rem;
+}
+
+.menu-card {
+    border-radius: 12px;
+    padding: 1.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    transition: all 0.3s ease;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.menu-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.menu-card::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    z-index: 0;
+}
+
+.menu-card-icon {
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.menu-card-content {
+    position: relative;
+    z-index: 1;
+}
+
+.menu-card-content h3 {
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.menu-card-content p {
+    margin-bottom: 0;
+    opacity: 0.9;
+}
+
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    background-color: #4e73df;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .welcome-header {
+        padding: 2rem 0;
+    }
+    
+    .welcome-header .display-4 {
+        font-size: 2rem;
+    }
+    
+    .menu-principal-container {
+        padding: 1rem;
+    }
+}
+
+.row.g-0 {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.col-auto {
+    width: 250px;
+    flex-shrink: 0;
+}
+
+.col {
+    flex-grow: 1;
+    transition: margin-left 0.3s ease;
+}
+
+@media (min-width: 992px) {
+    .col {
+        margin-left: 250px;
+        width: calc(100% - 250px);
+    }
+}
+
+@media (max-width: 991.98px) {
+    .col {
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    .col-auto {
+        width: 0;
+    }
+}
+
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1030;
+    overflow-y: auto;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Corrigir layout para evitar sobreposição entre sidebar e conteúdo principal */
+
+/* Estilo para o container principal */
+.main-layout {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    position: relative;
+}
+
+/* Coluna da sidebar */
+.sidebar-container {
+    width: 250px;
+    position: relative;
+    flex: 0 0 250px;
+}
+
+/* Sidebar fixa */
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1030;
+    overflow-y: auto;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Wrapper de conteúdo principal */
+.main-content-wrapper {
+    flex: 1;
+    width: calc(100% - 250px);
+    transition: all 0.3s ease;
+}
+
+/* Media queries para layout responsivo */
+@media (max-width: 991.98px) {
+    .main-content-wrapper {
+        width: 100%;
+    }
 } 
